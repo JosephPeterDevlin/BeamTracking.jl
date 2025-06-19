@@ -9,7 +9,7 @@ struct Exact end
 
 module ExactTracking
 using ..GTPSA, ..BeamTracking, ..StaticArrays, ..ReferenceFrameRotations, ..KernelAbstractions
-using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, @makekernel, BunchView
+using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, Q0, QX, QY, QZ, @makekernel, BunchView
 using ..BeamTracking: C_LIGHT
 const TRACKING_METHOD = Exact
 
@@ -80,10 +80,24 @@ k2_num:   g / Bρ0 = g / (p0 / q)
           and (signed) reference magnetic rigidity.
 L: element length
 """
-@makekernel fastgtpsa=true function mkm_quadrupole!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, k2_num, L)
-  quadrupole_matrix!(i, b::BunchView, k2_num, L / 2)
-  quadrupole_kick!(  i, b::BunchView, beta_0, gamsqr_0, tilde_m, L)
-  quadrupole_matrix!(i, b::BunchView, k2_num, L / 2)
+@makekernel fastgtpsa=false function mkm_quadrupole!(i, b::BunchView, beta_0, gamsqr_0, tilde_m, k2_num, L)
+  if isnothing(b.q)
+    quadrupole_matrix!(i, b::BunchView, k2_num, L / 2)
+    quadrupole_kick!(  i, b::BunchView, beta_0, gamsqr_0, tilde_m, L)
+    quadrupole_matrix!(i, b::BunchView, k2_num, L / 2)
+  else
+    a = 0.00115965218128 # b.species.a
+    betagamma = beta_0*sqrt(gamsqr_0) * (1 + b.v[i,PZI])
+    gamma = sqrt(1+betagamma^2)
+    mm = @SArray [2] # doesn't work with FastGTPSA
+    kn = @SArray [k2_num]
+    sn = @SArray [0]
+    rotate_spin!(i, b, a, 0, beta_0, gamma, 0, mm, kn, sn, L / 2)
+    quadrupole_matrix!(i, b::BunchView, k2_num, L / 2)
+    quadrupole_kick!(  i, b::BunchView, beta_0, gamsqr_0, tilde_m, L)
+    quadrupole_matrix!(i, b::BunchView, k2_num, L / 2)
+    rotate_spin!(i, b, a, 0, beta_0, gamma, 0, mm, kn, sn, L / 2)
+  end
 end # function mkm_quadrupole!()
 
 
@@ -275,28 +289,117 @@ DTA: Add thin dipole kick.
 end # function multipole_kick!()
 
 
-#function binom(m::Integer, x, y)
-#  """
-#  This function computes the real and imaginary parts of
-#  (x + i y)^m. One can use these components to compute,
-#  among other things, the multipole kick induced by two-
-#  dimensional multipole magnets.
-#  """
-#  if m == 0
-#    return [ 1, 0.0 ]
-#  end
-#  ar = x
-#  ai = y
-#  mm = m
-#  while mm > 1
-#    mm -= 1
-#    t  = x * ar - y * ai
-#    ai = y * ar + x * ai
-#    ar = t
-#  end
-#  return [ ar, ai ]
-#end # function binom()
+@inline function binom(m::Integer, x, y)
+  """
+  This function computes the real and imaginary parts of
+  (x + i y)^m. One can use these components to compute,
+  among other things, the multipole kick induced by two-
+  dimensional multipole magnets.
+  """
+  if m == 0
+    return (1.0, 0.0)
+  end
+  ar = x
+  ai = y
+  mm = m
+  while mm > 1
+    mm -= 1
+    t  = x * ar - y * ai
+    ai = y * ar + x * ai
+    ar = t
+  end
+  return ar, ai
+end 
 
+
+@inline function field(ks, mm, kn, sn, x, y)
+  """
+  This function computes the magnetic field (Bx, By, Bz)/Brho at position (x,y)
+  using the multipole coefficients kn and sn indexed by mm, i.e.,
+  kn[i] is the normal coefficient of order mm[i]. Additionally, ks is the
+  solenoid strength.
+  """
+  factorials = @SArray [
+    1,
+    1,
+    2,
+    6,
+    24,
+    120,
+    720,
+    5040,
+    40320,
+    362880,
+    3628800,
+    39916800,
+    479001600,
+    6227020800,
+    87178291200,
+    1307674368000,
+    20922789888000,
+    355687428096000,
+    6402373705728000,
+    121645100408832000,
+    2432902008176640000,
+    51090942171709440000
+  ]
+  Bx, By = 0, 0
+  for i in 1:length(mm)
+    ar, ai = binom(mm[i]-1, x, y)
+    Bx += (kn[i] * ai + sn[i] * ar)/factorials[mm[i]]
+    By += (kn[i] * ar - sn[i] * ai)/factorials[mm[i]]
+  end
+  return Bx, By, ks
+end 
+
+
+@inline function omega(i, b::BunchView, a, g, beta_0, gamma, ks, mm, kn, sn)
+  """
+  This function computes the spin-precession vector using the multipole 
+  coefficients kn and sn indexed by mm, i.e., kn[i] is the normal 
+  coefficient of order mm[i].
+  """
+  v = b.v
+
+  rel_p = 1 + v[i,PZI]
+  pl = sqrt(rel_p^2-v[i,PXI]^2-v[i,PYI]^2)
+  Bx, By, Bz = field(ks, mm, kn, sn, v[i,XI], v[i,YI])
+  Bdotbeta = 1/rel_p*(Bx*v[i,PXI] + By*v[i,PYI] + Bz*pl) 
+
+  chi = 1 + a*gamma
+  zeta = a*gamma^2/(1+gamma)*Bdotbeta/rel_p
+  scale = -(1+g*v[i,XI])/pl
+  
+  ox = scale*(chi*Bx - zeta*v[i,PXI])
+  oy = scale*(chi*By - zeta*v[i,PYI]) + g 
+  oz = scale*(chi*Bz - zeta*pl)
+  return @SArray [ox, oy, oz]
+end
+
+
+@inline function expq(v)
+  """
+  This function computes exp(i v⋅σ) as a quaternion, where σ is the 
+  vector of Pauli matrices.
+  """
+  n = sqrt(v[1]^2 + v[2]^2 + v[3]^2)
+  c = cos(n)
+  s = sincu(n)
+  v2 = s .* v
+  return @SArray [-c, v2[1], v2[2], v2[3]]
+end
+
+
+@inline function rotate_spin!(i, b::BunchView, a, g, beta_0, gamma, ks, mm, kn, sn, L)
+  q2 = b.q
+  q1 = expq(-L/2 .* omega(i, b, a, g, beta_0, gamma, ks, mm, kn, sn))
+  a1, b1, c1, d1 = q1[1], q1[2], q1[3], q1[4]
+  a2, b2, c2, d2 = q2[i,Q0], q2[i,QX], q2[i,QY], q2[i,QZ]
+  q2[i,Q0] = a1*a2 - b1*b2 - c1*c2 - d1*d2
+  q2[i,QX] = a1*b2 + b1*a2 + c1*d2 - d1*c2
+  q2[i,QY] = a1*c2 - b1*d2 + c1*a2 + d1*b2
+  q2[i,QZ] = a1*d2 + b1*c2 - c1*b2 + d1*a2
+end
 
 #
 # ===============  E X A C T   S E C T O R   B E N D  ===============
@@ -416,9 +519,31 @@ sn: vector of skew multipole strengths scaled by Bρ0
 L:  element length
 """
 @makekernel fastgtpsa=true function sks_multipole!(i, b::BunchView, ks, beta_0, gamsqr_0, tilde_m, mm, kn, sn, L)
-  exact_solenoid!(i, b, ks, beta_0, gamsqr_0, tilde_m, L / 2)
-  multipole_kick!(i, b, mm, kn * L, sn * L)
-  exact_solenoid!(i, b, ks, beta_0, gamsqr_0, tilde_m, L / 2)
+  if isnothing(b.q)
+    exact_solenoid!(i, b, ks, beta_0, gamsqr_0, tilde_m, L / 2)
+    multipole_kick!(i, b, mm, kn * L, sn * L)
+    exact_solenoid!(i, b, ks, beta_0, gamsqr_0, tilde_m, L / 2)
+  else
+    a = 0.00115965218128 # b.species.a
+    betagamma = beta_0*sqrt(gamsqr_0) * (1 + b.v[i,PZI])
+    gamma = sqrt(1+betagamma^2)
+    rotate_spin!(i, b, a, 0, beta_0, gamma, ks, mm, kn, sn, L / 2)
+    exact_solenoid!(i, b, ks, beta_0, gamsqr_0, tilde_m, L / 2)
+    multipole_kick!(i, b, mm, kn * L, sn * L)
+    exact_solenoid!(i, b, ks, beta_0, gamsqr_0, tilde_m, L / 2)
+    rotate_spin!(i, b, a, 0, beta_0, gamma, ks, mm, kn, sn, L / 2)
+  end
+end 
+
+
+@makekernel fastgtpsa=false function solenoid_spin!(i, b::BunchView, ks, beta_0, gamsqr_0, tilde_m, L)
+  a = 0.00115965218128 # b.species.a
+  betagamma = beta_0*sqrt(gamsqr_0) * (1 + b.v[i,PZI])
+  gamma = sqrt(1+betagamma^2)
+  mm = @SArray [] # Doesn't work with FastGTPSA
+  rotate_spin!(i, b, a, 0, beta_0, gamma, ks, mm, mm, mm, L / 2)
+  exact_solenoid!(i, b, ks, beta_0, gamsqr_0, tilde_m, L)
+  rotate_spin!(i, b, a, 0, beta_0, gamma, ks, mm, mm, mm, L / 2)
 end 
 
 

@@ -65,9 +65,18 @@ end
 # === Thick elements === #
 @inline drift(tm::Integration, bunch, L) = drift(Exact(), bunch, L)
 
-@inline thick_pure_bsolenoid(tm::Integration, bunch, bm0, L) = thick_pure_bsolenoid(Exact(), bunch, bm0, L)
+@inline function thick_pure_bsolenoid(tm::Integration, bunch, bm0, L)
+  if isnothing(bunch.q)
+    return thick_pure_bsolenoid(Exact(), bunch, bm0, L)
+  else
+    tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, bunch.Brho_ref)
+    Ks = get_thick_strength(bm0, L, bunch.Brho_ref)
+    params = (Ks, beta_0, gamsqr_0, tilde_m)
+    return integration_launcher!(ExactTracking.solenoid_spin!, params, tm.order, tm.n_steps, L)
+  end
+end
 
-@inline function thick_bsolenoid(tm::Integration, bunch, bm, L) 
+@inline function thick_bsolenoid(tm::Integration, bunch, bm, L)
   tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, bunch.Brho_ref)
   Ks = get_thick_strength(bm[0], L, bunch.Brho_ref)
   mm, kn, sn = get_thick_multipoles(bunch, bm, L)
