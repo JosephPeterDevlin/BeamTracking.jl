@@ -18,7 +18,7 @@ import Base: setproperty!
 export Bunch, Species, State, ParticleView, ELECTRON, POSITRON, PROTON, ANTIPROTON, sincu, sinhcu, sincuc
 export LinearTracking, Linear
 export ExactTracking, Exact
-export IntegrationTracking, Integration
+export IntegrationTracking, Standard, MKM, BKB, SKS, DKD
 export track!
 
 include("utils.jl")
@@ -29,7 +29,7 @@ include("kernel.jl")
 
 include("modules/ExactTracking.jl") #; TRACKING_METHOD(::ExactTracking) = Exact
 include("modules/LinearTracking.jl") #; TRACKING_METHOD(::LinearTracking) = Linear
-include("modules/IntegrationTracking.jl") #; TRACKING_METHOD(::IntegrationTracking) = Integration
+include("modules/IntegrationTracking.jl") #; TRACKING_METHOD(::IntegrationTracking) = Standard or MKM or BKB or SKS or DKD
 
 
 # Empty tracking method to be imported+implemented by package extensions

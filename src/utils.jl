@@ -98,21 +98,18 @@ const Q = 1.602176634e-19 # C
 const C_LIGHT = 2.99792458e8 # m/s
 const M_ELECTRON = 0.51099895069e6 # eV/c^2
 const M_PROTON = 9.3827208943e8 # eV/c^2
-const a_p = 1.792854734463
-const a_e = 0.00115965218128
 
 struct Species
   name::String
   mass::Float64   # in eV/c^2
   charge::Float64 # in Coulomb
-  a::Float64      # anomalous gyromagnetic ratio
 end
 
-const ELECTRON = Species("electron", M_ELECTRON,-1,a_e)
-const POSITRON = Species("positron", M_ELECTRON,1,a_e)
+const ELECTRON = Species("electron", M_ELECTRON,-1)
+const POSITRON = Species("positron", M_ELECTRON,1)
 
-const PROTON = Species("proton", M_PROTON,1,a_p)
-const ANTIPROTON = Species("antiproton", M_PROTON,-1,a_p)
+const PROTON = Species("proton", M_PROTON,1)
+const ANTIPROTON = Species("antiproton", M_PROTON,-1)
 
 
 function Species(name)

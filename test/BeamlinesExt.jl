@@ -71,7 +71,7 @@
     Brho_ref = BeamTracking.calc_Brho(ELECTRON, sqrt(p0c^2 + BeamTracking.massof(ELECTRON)^2))
 
     # Thin pure multipole:
-    ele = LineElement(L=0.0, K3L=10.0, tilt3=0.5*pi, tracking_method=Integration())
+    ele = LineElement(L=0.0, K3L=10.0, tilt3=0.5*pi, tracking_method=Standard())
     b0 = Bunch(collect(transpose(@vars(D10))), Brho_ref=Brho_ref)
     bl = Beamline([ele], Brho_ref=Brho_ref)
     track!(b0, bl)
@@ -79,7 +79,7 @@
     @test coeffs_approx_equal(v_expected, b0.v, 5e-10)
 
     # Thin multipole:
-    ele = LineElement(L=0.0, K2L=1.0, tilt2=0.3*pi, K6L=100.0, tilt6=0.15*pi, tracking_method=Integration())
+    ele = LineElement(L=0.0, K2L=1.0, tilt2=0.3*pi, K6L=100.0, tilt6=0.15*pi, tracking_method=Standard())
     b0 = Bunch(collect(transpose(@vars(D10))), Brho_ref=Brho_ref)
     bl = Beamline([ele], Brho_ref=Brho_ref)
     track!(b0, bl)
@@ -91,7 +91,7 @@
     Brho_ref = BeamTracking.calc_Brho(ELECTRON, sqrt(p0c^2 + BeamTracking.massof(ELECTRON)^2))
 
     # Drift: 
-    ele = LineElement(L=1.0, tracking_method=Integration())   
+    ele = LineElement(L=1.0, tracking_method=Standard())   
     b0 = Bunch(collect(transpose(@vars(D10))), Brho_ref=Brho_ref)
     bl = Beamline([ele], Brho_ref=Brho_ref)
     track!(b0, bl)
@@ -99,7 +99,7 @@
     @test coeffs_approx_equal(v_expected, b0.v, 5e-10)
 
     # Pure solenoid:
-    ele = LineElement(L=1.0, Ks=2.0, tracking_method=Integration())
+    ele = LineElement(L=1.0, Ks=2.0, tracking_method=Standard())
     b0 = Bunch(collect(transpose(@vars(D10))), Brho_ref=Brho_ref)
     bl = Beamline([ele], Brho_ref=Brho_ref)
     track!(b0, bl)
@@ -107,7 +107,7 @@
     @test coeffs_approx_equal(v_expected, b0.v, 5e-10)
 
     # Solenoid with quadrupole:
-    ele = LineElement(L=2.0, Ks=0.1, K1=0.1, tracking_method=Integration())
+    ele = LineElement(L=2.0, Ks=0.1, K1=0.1, tracking_method=Standard())
     b0 = Bunch(collect(transpose(@vars(D10))), Brho_ref=Brho_ref)
     bl = Beamline([ele], Brho_ref=Brho_ref)
     track!(b0, bl)
@@ -115,7 +115,7 @@
     @test coeffs_approx_equal(v_expected, b0.v, 9e-5)
 
     # Pure dipole:
-    #ele = LineElement(L=2.0, K0=0.1+1e-3, g=0.1, e1=1e-3, e2=-2e-3, tracking_method=Integration())
+    #ele = LineElement(L=2.0, K0=0.1+1e-3, g=0.1, e1=1e-3, e2=-2e-3, tracking_method=Standard())
     #b0 = Bunch(collect(transpose(@vars(D10))), Brho_ref=Brho_ref)
     #bl = Beamline([ele], Brho_ref=Brho_ref)
     #track!(b0, bl)
@@ -123,7 +123,7 @@
     #@test coeffs_approx_equal(v_expected, b0.v, 5e-10)
 
     # Dipole with quadrupole:
-    #ele = LineElement(L=2.0, K0=0.1+1e-3, K1=0.2, g=0.1, e1=1e-3, e2=-2e-3, tracking_method=Integration())
+    #ele = LineElement(L=2.0, K0=0.1+1e-3, K1=0.2, g=0.1, e1=1e-3, e2=-2e-3, tracking_method=Standard())
     #b0 = Bunch(collect(transpose(@vars(D10))), Brho_ref=Brho_ref)
     #bl = Beamline([ele], Brho_ref=Brho_ref)
     #track!(b0, bl)
@@ -131,15 +131,23 @@
     #@test coeffs_approx_equal(v_expected, b0.v, 5e-10)
 
     # Pure quadrupole:
-    ele = LineElement(L=2.0, K1=0.1, tracking_method=Integration(order=6,n_steps=200))
+    ele = LineElement(L=2.0, K1=0.1, tracking_method=Standard(order=6,num_steps=200))
     b0 = Bunch(collect(transpose(@vars(D10))), Brho_ref=Brho_ref)
     bl = Beamline([ele], Brho_ref=Brho_ref)
     track!(b0, bl)
     v_expected = read_map("bmad_maps/quadrupole.jl")
     @test coeffs_approx_equal(v_expected, b0.v, 1e-5)
 
+    # Skewed quadrupole:
+    ele = LineElement(L=2.0, K1=0.1, tilt1 = 0.25*pi, tracking_method=Standard(order=6,num_steps=200))
+    b0 = Bunch(collect(transpose(@vars(D10))), Brho_ref=Brho_ref)
+    bl = Beamline([ele], Brho_ref=Brho_ref)
+    track!(b0, bl)
+    v_expected = read_map("bmad_maps/skewed_quad.jl")
+    @test coeffs_approx_equal(v_expected, b0.v, 1e-5)
+
     # Quadrupole with octupole:
-    ele = LineElement(L=2.0, K1=0.1, K3=100, tracking_method=Integration())
+    ele = LineElement(L=2.0, K1=0.1, K3=100, tracking_method=DKD())
     b0 = Bunch(collect(transpose(@vars(D10))), Brho_ref=Brho_ref)
     bl = Beamline([ele], Brho_ref=Brho_ref)
     track!(b0, bl)
@@ -147,7 +155,7 @@
     @test coeffs_approx_equal(v_expected, b0.v, 5e-10)
 
     # Pure sextupole:
-    ele = LineElement(L=2.0, K2=0.1, tracking_method=Integration())
+    ele = LineElement(L=2.0, K2=0.1, tracking_method=Standard())
     b0 = Bunch(collect(transpose(@vars(D10))), Brho_ref=Brho_ref)
     bl = Beamline([ele], Brho_ref=Brho_ref)
     track!(b0, bl)
