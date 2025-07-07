@@ -24,36 +24,44 @@ end
 end
 
 @inline function integration_launcher!(ker, params, tm, L; track_spin=false, beta_0=-1, 
-  gamsqr_0=-1, tilde_m=-1, g=0, Ks=0, mm=[], kn=[], sn=[])
-  order = tm.order
-  ds_step = tm.ds_step
-  num_steps = tm.num_steps
-  if ds_step < 0
-    ds_step = L / tm.num_steps
-  else
-    num_steps = Int(ceil(L / ds_step))
-    ds_step = L / num_steps
-  end
-  if !track_spin
-    if order == 2
-      return KernelCall(IntegrationTracking.order_two_integrator!, (ker, params, ds_step, num_steps, L))
-    elseif order == 4
-      return KernelCall(IntegrationTracking.order_four_integrator!, (ker, params, ds_step, num_steps, L))
-    elseif order == 6
-      return KernelCall(IntegrationTracking.order_six_integrator!, (ker, params, ds_step, num_steps, L))
-    elseif order == 8
-      return KernelCall(IntegrationTracking.order_eight_integrator!, (ker, params, ds_step, num_steps, L))
+  gamsqr_0=-1, tilde_m=-1, a=0, g=0, Ks=0, mm=[], kn=[], sn=[])
+  if L ≈ 0
+    if !track_spin
+      return KernelCall(ker, params)
+    else
+      return KernelCall(IntegrationTracking.integrate_with_spin!, (ker, params, beta_0, gamsqr_0, tilde_m, a, g, Ks, mm, kn, sn, L))
     end
   else
-    params = (ker, params, beta_0, gamsqr_0, tilde_m, g, Ks, mm, kn, sn)
-    if order == 2
-      return KernelCall(IntegrationTracking.order_two_integrator!, (IntegrationTracking.integrate_with_spin!, params, ds_step, num_steps, L))
-    elseif order == 4
-      return KernelCall(IntegrationTracking.order_four_integrator!, (IntegrationTracking.integrate_with_spin!, params, ds_step, num_steps, L))
-    elseif order == 6
-      return KernelCall(IntegrationTracking.order_six_integrator!, (IntegrationTracking.integrate_with_spin!, params, ds_step, num_steps, L))
-    elseif order == 8
-      return KernelCall(IntegrationTracking.order_eight_integrator!, (IntegrationTracking.integrate_with_spin!, params, ds_step, num_steps, L))
+    order = tm.order
+    ds_step = tm.ds_step
+    num_steps = tm.num_steps
+    if ds_step < 0
+      ds_step = L / tm.num_steps
+    else
+      num_steps = Int(ceil(L / ds_step))
+      ds_step = L / num_steps
+    end
+    if !track_spin
+      if order == 2
+        return KernelCall(IntegrationTracking.order_two_integrator!, (ker, params, ds_step, num_steps, L))
+      elseif order == 4
+        return KernelCall(IntegrationTracking.order_four_integrator!, (ker, params, ds_step, num_steps, L))
+      elseif order == 6
+        return KernelCall(IntegrationTracking.order_six_integrator!, (ker, params, ds_step, num_steps, L))
+      elseif order == 8
+        return KernelCall(IntegrationTracking.order_eight_integrator!, (ker, params, ds_step, num_steps, L))
+      end
+    else
+      params = (ker, params, beta_0, gamsqr_0, tilde_m, a, g, Ks, mm, kn, sn)
+      if order == 2
+        return KernelCall(IntegrationTracking.order_two_integrator!, (IntegrationTracking.integrate_with_spin!, params, ds_step, num_steps, L))
+      elseif order == 4
+        return KernelCall(IntegrationTracking.order_four_integrator!, (IntegrationTracking.integrate_with_spin!, params, ds_step, num_steps, L))
+      elseif order == 6
+        return KernelCall(IntegrationTracking.order_six_integrator!, (IntegrationTracking.integrate_with_spin!, params, ds_step, num_steps, L))
+      elseif order == 8
+        return KernelCall(IntegrationTracking.order_eight_integrator!, (IntegrationTracking.integrate_with_spin!, params, ds_step, num_steps, L))
+      end
     end
   end
 end
@@ -62,15 +70,28 @@ end
 # =========== STRAIGHT ELEMENTS ============= #
 # === Thin elements === #
 @inline function thin_pure_bdipole(tm::Standard, bunch, bm1)
+  tilde_m, gamsqr_0, beta_0 = 0, 0, 0
+  if !isnothing(bunch.q)
+    tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, bunch.Brho_ref)
+  end
   brho_0 = bunch.Brho_ref
   mm = @SArray [bm1.order]
   kn = @SArray [get_thin_strength(bm1, 0, brho_0)*cos(-bm1.order*bm1.tilt)]
   sn = @SArray [get_thin_strength(bm1, 0, brho_0)*sin(-bm1.order*bm1.tilt)]
-  return KernelCall(ExactTracking.multipole_kick!, (mm, kn, sn))
+  return integration_launcher!(ExactTracking.multipole_kick!, (mm, kn, sn), tm, 0; 
+  track_spin=!isnothing(bunch.q), beta_0=beta_0, gamsqr_0=gamsqr_0, tilde_m=tilde_m,
+  a=bunch.species.anomalous_magnetic_moment, mm=mm, kn=kn, sn=sn)
 end
 
 @inline function thin_bdipole(tm::Standard, bunch, bm)
-  return KernelCall(ExactTracking.multipole_kick!, get_thin_multipoles(bunch,bm,0))
+  tilde_m, gamsqr_0, beta_0 = 0, 0, 0
+  if !isnothing(bunch.q)
+    tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, bunch.Brho_ref)
+  end
+  params = get_thin_multipoles(bunch, bm, 0)
+  return integration_launcher!(ExactTracking.multipole_kick!, params, tm, 0; 
+  track_spin=!isnothing(bunch.q), beta_0=beta_0, gamsqr_0=gamsqr_0, tilde_m=tilde_m,
+  a=bunch.species.anomalous_magnetic_moment, mm=params[1], kn=params[2], sn=params[3])
 end
 
 @inline thin_pure_bquadrupole(tm::Standard, bunch, bm1) = thin_pure_bdipole(tm, bunch, bm1)
@@ -91,7 +112,7 @@ end
   params = (Ks, beta_0, gamsqr_0, tilde_m)
   return integration_launcher!(ExactTracking.exact_solenoid!, params, tm, L; 
   track_spin=!isnothing(bunch.q), beta_0=beta_0, gamsqr_0=gamsqr_0, tilde_m=tilde_m,
-  Ks=Ks)
+  a=bunch.species.anomalous_magnetic_moment, Ks=Ks)
 end
 
 @inline function thick_bsolenoid(tm::Union{Standard,SKS}, bunch, bm, L) 
@@ -101,7 +122,7 @@ end
   params = (Ks, beta_0, gamsqr_0, tilde_m, mm, kn, sn)
   return integration_launcher!(IntegrationTracking.sks_multipole!, params, tm, L; 
   track_spin=!isnothing(bunch.q), beta_0=beta_0, gamsqr_0=gamsqr_0, tilde_m=tilde_m,
-  Ks=Ks, mm=mm, kn=kn, sn=sn)
+  a=bunch.species.anomalous_magnetic_moment, Ks=Ks, mm=mm, kn=kn, sn=sn)
 end
 
 @inline function thick_pure_bdipole(tm::Union{Standard,BKB}, bunch, bm1, L)
@@ -110,7 +131,8 @@ end
   b0 = brho_0 * get_thick_strength(bm1, L, brho_0)
   params = (beta_0, brho_0, 0, b0, 0, 0)
   return integration_launcher!(ExactTracking.exact_sbend!, params, tm, L; 
-  track_spin=!isnothing(bunch.q), beta_0=beta_0, gamsqr_0=gamsqr_0, tilde_m=tilde_m)
+  track_spin=!isnothing(bunch.q), beta_0=beta_0, gamsqr_0=gamsqr_0, tilde_m=tilde_m,
+  a=bunch.species.anomalous_magnetic_moment,)
 end
 
 @inline function thick_bdipole(tm::Union{Standard,BKB}, bunch, bm, L)
@@ -119,7 +141,11 @@ end
   b0 = brho_0 * get_thick_strength(bm[1], L, brho_0)
   mm, kn, sn = get_thick_multipoles_no_dipole(bunch, bm, L)
   params = (beta_0, brho_0, 0, b0, 0, 0, mm, kn, sn)
-  return integration_launcher!(IntegrationTracking.bkb_multipole!, params, tm, L)
+  return integration_launcher!(IntegrationTracking.bkb_multipole!, params, tm, L; 
+  track_spin=!isnothing(bunch.q), beta_0=beta_0, gamsqr_0=gamsqr_0, tilde_m=tilde_m,
+  a=bunch.species.anomalous_magnetic_moment, mm=mm, kn=kn, sn=sn) # needs dipole component in array. 
+  # I should probably make it so that all the x-kick functions take the whole 
+  # array only and just put in the dipole/quad component to bend/matrix.
 end
 
 @inline function thick_pure_bquadrupole(tm::Union{Standard,MKM}, bunch, bm2, L)
@@ -139,7 +165,7 @@ end
   params = (beta_0, gamsqr_0, tilde_m, K1, mm, kn, sn)
   return integration_launcher!(IntegrationTracking.mkm_quadrupole!, params, tm, L; 
   track_spin=!isnothing(bunch.q), beta_0=beta_0, gamsqr_0=gamsqr_0, tilde_m=tilde_m, 
-  Ks=0, mm=[2], kn=[K1], sn=sn)
+  a=bunch.species.anomalous_magnetic_moment, Ks=0, mm=[2], kn=[K1], sn=sn)
 end
 
 @inline function thick_pure_bquadrupole(tm::DKD, bunch, bm2, L)
@@ -152,7 +178,7 @@ end
   params = (beta_0, gamsqr_0, tilde_m, mm, kn, sn)
   return integration_launcher!(IntegrationTracking.dkd_multipole!, params, tm, L;
   track_spin=!isnothing(bunch.q), beta_0=beta_0, gamsqr_0=gamsqr_0, tilde_m=tilde_m, 
-  Ks=0, mm=mm, kn=kn, sn=sn)
+  a=bunch.species.anomalous_magnetic_moment, Ks=0, mm=mm, kn=kn, sn=sn)
 end
 
 @inline function thick_bquadrupole(tm::Union{Standard,MKM}, bunch, bm, L)
@@ -164,7 +190,7 @@ end
   params = (beta_0, gamsqr_0, tilde_m, K1, mm, kn, sn)
   return integration_launcher!(IntegrationTracking.mkm_quadrupole!, params, tm, L;
   track_spin=!isnothing(bunch.q), beta_0=beta_0, gamsqr_0=gamsqr_0, tilde_m=tilde_m, 
-  Ks=0, mm=mm, kn=kn, sn=sn)
+  a=bunch.species.anomalous_magnetic_moment, Ks=0, mm=mm, kn=kn, sn=sn)
 end
 
 @inline function thick_bquadrupole(tm::DKD, bunch, bm, L)
@@ -174,7 +200,7 @@ end
   params = (beta_0, gamsqr_0, tilde_m, mm, kn, sn)
   return integration_launcher!(IntegrationTracking.dkd_multipole!, params, tm, L;
   track_spin=!isnothing(bunch.q), beta_0=beta_0, gamsqr_0=gamsqr_0, tilde_m=tilde_m, 
-  mm=mm, kn=kn, sn=sn)
+  a=bunch.species.anomalous_magnetic_moment, mm=mm, kn=kn, sn=sn)
 end
 
 @inline function thick_pure_bmultipole(tm::Union{Standard,DKD}, bunch, bm1, L)
@@ -186,7 +212,7 @@ end
   params = (beta_0, gamsqr_0, tilde_m, mm, kn, sn)
   return integration_launcher!(IntegrationTracking.dkd_multipole!, params, tm, L;
   track_spin=!isnothing(bunch.q), beta_0=beta_0, gamsqr_0=gamsqr_0, tilde_m=tilde_m, 
-  mm=mm, kn=kn, sn=sn)
+  a=bunch.species.anomalous_magnetic_moment, mm=mm, kn=kn, sn=sn)
 end
 
 @inline function thick_bmultipole(tm::Standard, bunch, bm, L)
@@ -196,7 +222,7 @@ end
   params = (beta_0, gamsqr_0, tilde_m, mm, kn, sn)
   return integration_launcher!(IntegrationTracking.dkd_multipole!, params, tm, L;
   track_spin=!isnothing(bunch.q), beta_0=beta_0, gamsqr_0=gamsqr_0, tilde_m=tilde_m, 
-  mm=mm, kn=kn, sn=sn)
+  a=bunch.species.anomalous_magnetic_moment, mm=mm, kn=kn, sn=sn)
 end
 
 @inline thick_bmultipole(tm::DKD, bunch, bm, L) = thick_bquadrupole(tm, bunch, bm, L)
@@ -225,7 +251,7 @@ end
   hc, e1, e2 = bendparams.g, bendparams.e1, bendparams.e2
   mm, kn, sn = get_thick_multipoles_no_dipole(bunch, bm, L)
   params = (beta_0, brho_0, hc, b0, e1, e2, mm, kn, sn)
-  return integration_launcher!(EIntegrationTracking.bkb_multipole!, params, tm, L)
+  return integration_launcher!(IntegrationTracking.bkb_multipole!, params, tm, L)
 end
 
 @inline function thick_bend_pure_bquadrupole(tm::Union{Standard,BKB}, bunch, bendparams, bm2, L)

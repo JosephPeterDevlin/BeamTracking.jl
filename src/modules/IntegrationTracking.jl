@@ -440,17 +440,16 @@ end
   q2[i,QZ] = a1*d2 + b1*c2 - c1*b2 + d1*a2
 end
 
-@makekernel fastgtpsa=true function integrate_with_spin!(i, b::BunchView, ker, params, beta_0, gamsqr_0, tilde_m, g, ks, mm, kn, sn, L)
-  a = 0.00115965218128                                # b.species.a
+@makekernel fastgtpsa=true function integrate_with_spin!(i, b::BunchView, ker, params, beta_0, gamsqr_0, tilde_m, a, g, ks, mm, kn, sn, L)
   betagamma = beta_0*sqrt(gamsqr_0) * (1 + b.v[i,PZI])
   gamma = sqrt(1+betagamma^2)
-  if L != 0
-    rotate_spin!(i, b, a, g, beta_0, gamma, ks, mm, kn, sn, L / 2)
-    ker(i, b, params..., L)
-    rotate_spin!(i, b, a, g, beta_0, gamma, ks, mm, kn, sn, L / 2)
+  if L ≈ 0
+    rotate_spin!(i, b, a, g, beta_0, gamma, ks, mm, kn, sn, 1)
+    ker(i, b, params...)
   else
-    rotate_spin!(i, b, a, g, beta_0, gamma, ks, mm, kn, sn, L)
+    rotate_spin!(i, b, a, g, beta_0, gamma, ks, mm, kn, sn, L / 2)
     ker(i, b, params..., L)
+    rotate_spin!(i, b, a, g, beta_0, gamma, ks, mm, kn, sn, L / 2)
   end
 end
 
