@@ -52,7 +52,7 @@ function universal!(
   # Current KernelChain length is 6 because we have up to
   # 2 aperture, 2 alignment, 1 body kernel, and 
   # 1 kernel to update the particles' reference energy
-  kc = KernelChain(Val{6}(), RefState(bunch.t_ref, beta_gamma_ref))
+  kc = KernelChain(Val{8}(), RefState(bunch.t_ref, beta_gamma_ref))
 
   # Evolve time through whole element
   bunch.t_ref += L/beta_gamma_to_v(beta_gamma_ref)
@@ -102,11 +102,17 @@ function universal!(
     if isactive(bendparams)
       error("Tracking through a LineElement containing both RFParams and BendParams not currently defined")
     else
+      gamma_ref = sqrt(1 + beta_gamma_ref^2)
+      beta_ref = beta_gamma_ref / gamma_ref 
+      cav_L = beta_ref/(2*rfparams.rf_frequency)
+      drift_L = (L - cav_L)/2
+      kc = push(kc, @inline(drift(tm, bunch, drift_L)))
       if !isactive(bmultipoleparams)
-        kc = push(kc, @inline(pure_rf(tm, bunch, rfparams, beamlineparams, L)))
+        kc = push(kc, @inline(pure_rf(tm, bunch, rfparams, beamlineparams, cav_L)))
       else
-        kc = push(kc, @inline(bmultipole_rf(tm, bunch, bmultipoleparams, rfparams, beamlineparams, L)))
+        kc = push(kc, @inline(bmultipole_rf(tm, bunch, bmultipoleparams, rfparams, beamlineparams, cav_L)))
       end
+      kc = push(kc, @inline(drift(tm, bunch, drift_L)))
     end
 
   elseif isactive(bendparams)

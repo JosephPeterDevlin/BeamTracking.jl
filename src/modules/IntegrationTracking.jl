@@ -44,7 +44,7 @@ end
 
 module IntegrationTracking
 using ..GTPSA, ..BeamTracking, ..StaticArrays, ..KernelAbstractions, ..SIMDMathFunctions
-using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, Q0, QX, QY, QZ, STATE_ALIVE, STATE_LOST, @makekernel, Coords, vifelse, C_LIGHT
+using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, Q0, QX, QY, QZ, STATE_ALIVE, STATE_LOST, @makekernel, Coords, vifelse, C_LIGHT, bessel01_RF
 
 #
 # ===============  I N T E G R A T O R S  ===============
@@ -53,7 +53,7 @@ using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, Q0, QX, QY, QZ, STATE_ALIVE, ST
 @makekernel fastgtpsa=true function order_two_integrator!(i, coords::Coords, ker, params, ds_step, num_steps, f1, f2, L)
   ExactTracking.linear_bend_fringe!(i, coords, f1)
   for _ in 1:num_steps
-    ker(i, coords, params..., ds_step)
+    ker(i, coords, update_t0(ker, params, ds)..., ds_step)
   end
   ExactTracking.linear_bend_fringe!(i, coords, f2)
 end
@@ -62,11 +62,15 @@ end
 @makekernel fastgtpsa=true function order_four_integrator!(i, coords::Coords, ker, params, ds_step, num_steps, f1, f2, L)
   w0 = -1.7024143839193153215916254339390434324741363525390625*ds_step
   w1 =  1.3512071919596577718181151794851757586002349853515625*ds_step
+  ds = 0.0
   ExactTracking.linear_bend_fringe!(i, coords, f1)
   for _ in 1:num_steps
-    ker(i, coords, params..., w1)
-    ker(i, coords, params..., w0)
-    ker(i, coords, params..., w1)
+    ker(i, coords, update_t0(ker, params, ds)..., w1)
+    ds += w1
+    ker(i, coords, update_t0(ker, params, ds)..., w0)
+    ds += w0
+    ker(i, coords, update_t0(ker, params, ds)..., w1)
+    ds += w1
   end
   ExactTracking.linear_bend_fringe!(i, coords, f2)
 end
@@ -79,13 +83,13 @@ end
   w3 =  0.784513610477557263819497633866351*ds_step
   ExactTracking.linear_bend_fringe!(i, coords, f1)
   for _ in 1:num_steps
-    ker(i, coords, params..., w3)
-    ker(i, coords, params..., w2)
-    ker(i, coords, params..., w1)
-    ker(i, coords, params..., w0)
-    ker(i, coords, params..., w1)
-    ker(i, coords, params..., w2)
-    ker(i, coords, params..., w3)
+    ker(i, coords, update_t0(ker, params, ds)..., w3)
+    ker(i, coords, update_t0(ker, params, ds)..., w2)
+    ker(i, coords, update_t0(ker, params, ds)..., w1)
+    ker(i, coords, update_t0(ker, params, ds)..., w0)
+    ker(i, coords, update_t0(ker, params, ds)..., w1)
+    ker(i, coords, update_t0(ker, params, ds)..., w2)
+    ker(i, coords, update_t0(ker, params, ds)..., w3)
   end
   ExactTracking.linear_bend_fringe!(i, coords, f2)
 end
@@ -102,40 +106,41 @@ end
   w7 =  0.914844246229740*ds_step
   ExactTracking.linear_bend_fringe!(i, coords, f1)
   for _ in 1:num_steps
-    ker(i, coords, params..., w7)
-    ker(i, coords, params..., w6)
-    ker(i, coords, params..., w5)
-    ker(i, coords, params..., w4)
-    ker(i, coords, params..., w3)
-    ker(i, coords, params..., w2)
-    ker(i, coords, params..., w1)
-    ker(i, coords, params..., w0)
-    ker(i, coords, params..., w1) 
-    ker(i, coords, params..., w2)
-    ker(i, coords, params..., w3)
-    ker(i, coords, params..., w4)
-    ker(i, coords, params..., w5)
-    ker(i, coords, params..., w6)
-    ker(i, coords, params..., w7)
+    ker(i, coords, update_t0(ker, params, ds)..., w7)
+    ker(i, coords, update_t0(ker, params, ds)..., w6)
+    ker(i, coords, update_t0(ker, params, ds)..., w5)
+    ker(i, coords, update_t0(ker, params, ds)..., w4)
+    ker(i, coords, update_t0(ker, params, ds)..., w3)
+    ker(i, coords, update_t0(ker, params, ds)..., w2)
+    ker(i, coords, update_t0(ker, params, ds)..., w1)
+    ker(i, coords, update_t0(ker, params, ds)..., w0)
+    ker(i, coords, update_t0(ker, params, ds)..., w1) 
+    ker(i, coords, update_t0(ker, params, ds)..., w2)
+    ker(i, coords, update_t0(ker, params, ds)..., w3)
+    ker(i, coords, update_t0(ker, params, ds)..., w4)
+    ker(i, coords, update_t0(ker, params, ds)..., w5)
+    ker(i, coords, update_t0(ker, params, ds)..., w6)
+    ker(i, coords, update_t0(ker, params, ds)..., w7)
   end
   ExactTracking.linear_bend_fringe!(i, coords, f2)
 end
 
 
-#=
+
 function update_t0(ker, params, ds)
   @FastGTPSA begin @inbounds begin
     if ker == cavity!
-      t0 = params[9] + ds/(params[1]*C_LIGHT)
+      t0 = params[13] + ds/(params[5]*C_LIGHT)
       new_params = (params[1], params[2], params[3], params[4], params[5], 
-      params[6], params[7], params[8], t0, params[10], params[11], params[12])
+      params[6], params[7], params[8], params[9], params[10], params[11], 
+      params[12], t0, params[14], params[15], params[16])
     else
       new_params = params
     end
   end end
   return new_params
 end
-=#
+
 
 
 #
@@ -592,7 +597,7 @@ end
 
 @makekernel fastgtpsa=true function integrate_with_spin_thin!(i, coords::Coords, ker, params, a, g, tilde_m, mm, knl, ksl)
   rotate_spin!(i, coords, a, g, tilde_m, mm, knl, ksl, 1/2)
-  ker(i, coords, params...)
+  ker(i, coords, update_t0(ker, params, ds)...)
   rotate_spin!(i, coords, a, g, tilde_m, mm, knl, ksl, 1/2)
 end
 
@@ -601,6 +606,7 @@ end
 # ===============  R F  ===============
 #
 @makekernel fastgtpsa=true function cavity!(i, coords::Coords, q, mc2, radiation_damping, radiation_fluctuations, beta_0, gamsqr_0, tilde_m, E_ref, p0c, a, omega, E0_over_Rref, t0, mm, kn, ks, L)
+  cavity_fringe!(i, coords, beta_0, tilde_m, omega, E0_over_Rref, t0)
   multipoles = (length(mm) > 0)
   sol = (multipoles && mm[1] == 0)
   if sol
@@ -608,7 +614,7 @@ end
   else
     ExactTracking.exact_drift!(   i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
   end
-  #t0 = t0 + (L/2)/(beta_0*C_LIGHT)
+  t0 = t0 + (L/2)/(beta_0*C_LIGHT)
 
   if multipoles
     if radiation_damping
@@ -643,6 +649,8 @@ end
   else
     ExactTracking.exact_drift!(   i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
   end
+  t0 = t0 + (L/2)/(beta_0*C_LIGHT)
+  cavity_fringe!(i, coords, beta_0, tilde_m, omega, -E0_over_Rref, t0)
 end
 
 
@@ -684,33 +692,65 @@ end
   alive = (coords.state[i] == STATE_ALIVE)
 
   bmad_to_mad!(i, coords, beta_0, tilde_m, E_ref, p0c)
-  #r2 = v[i,XI]*v[i,XI] + v[i,YI]*v[i,YI]
-  #b01 = 2.404825557695773 # first zero of J0
-  #d = C_LIGHT*b01/omega
-  #arg = (b01*b01)/(d*d)*r2
-  #b0, b1 = bessel01_RF(arg)
-  #b1 = b1 * b01/d
+  r2 = v[i,XI]*v[i,XI] + v[i,YI]*v[i,YI]
+  b01 = 2.404825557695773 # first zero of J0
+  d = C_LIGHT*b01/omega
+  arg = (b01*b01)/(d*d)*r2
+  b0, b1 = bessel01_RF(arg)
+  b1 = b1 * b01/d
 
   t = t0 - v[i,ZI]/C_LIGHT
 
-  #px_0 = v[i,PXI]
-  #py_0 = v[i,PYI]
+  px_0 = v[i,PXI]
+  py_0 = v[i,PYI]
   pz_0 = v[i,PZI]
 
   phi_particle = omega*t
-  #s, c = sincos(phi_particle)
+  s, c = sincos(phi_particle)
 
-  #coeff = L*E0_over_Rref*b01/(omega*d)*b1*c
+  coeff = L*E0_over_Rref*b01/(omega*d)*b1*c
 
-  #new_px = px_0 - coeff*v[i,XI]
-  #new_py = py_0 - coeff*v[i,YI]
-  new_pz = pz_0 + L*E0_over_Rref/C_LIGHT*sin(phi_particle)
+  new_px = px_0 - coeff*v[i,XI]
+  new_py = py_0 - coeff*v[i,YI]
+  new_pz = pz_0 + L*E0_over_Rref*b0*s/C_LIGHT
 
-  #v[i,PXI] = vifelse(alive, new_px, px_0)
-  #v[i,PYI] = vifelse(alive, new_py, py_0)
+  v[i,PXI] = vifelse(alive, new_px, px_0)
+  v[i,PYI] = vifelse(alive, new_py, py_0)
   v[i,PZI] = vifelse(alive, new_pz, pz_0)
 
   mad_to_bmad!(i, coords, beta_0, tilde_m, E_ref, p0c)
+end
+
+
+@makekernel fastgtpsa=true function cavity_fringe!(i, coords::Coords, beta_0, tilde_m, omega, E0_over_Rref, t0)
+  v = coords.v 
+  alive = (coords.state[i] == STATE_ALIVE)
+
+  r2 = v[i,XI]*v[i,XI] + v[i,YI]*v[i,YI]
+  b01 = 2.404825557695773 # first zero of J0
+  d = C_LIGHT*b01/omega
+  arg = (b01*b01)/(d*d)*r2
+  b0, b1 = bessel01_RF(arg)
+  #b1 = b1 * b01/d I don't want that here
+  beta_gamma = (1 + v[i,PZI])/tilde_m
+  gamma = sqrt(1 + beta_gamma*beta_gamma)
+  beta = beta_gamma/gamma
+  vel = beta*C_LIGHT
+  t = t0 - v[i,ZI]/vel
+
+  px_0 = v[i,PXI]
+  py_0 = v[i,PYI]
+
+  phi_particle = omega*t
+  s, c = sincos(phi_particle)
+
+  coeff = E0_over_Rref*b1*s/vel
+
+  new_px = px_0 - coeff*v[i,XI]
+  new_py = py_0 - coeff*v[i,YI]
+
+  v[i,PXI] = vifelse(alive, new_px, px_0)
+  v[i,PYI] = vifelse(alive, new_py, py_0)
 end
 
 
@@ -718,12 +758,12 @@ function omega_cavity(i, coords::Coords, a, tilde_m, omega, E0_over_Rref, t0, mm
   @FastGTPSA begin @inbounds begin
     v = coords.v
     alive = (coords.state[i] == STATE_ALIVE)
-    #r2 = v[i,XI]*v[i,XI] + v[i,YI]*v[i,YI]
-    #b01 = 2.404825557695773 # first zero of J0
-    #d = C_LIGHT*b01/omega
-    #arg = (b01*b01)/(d*d)*r2
-    #b0, b1 = bessel01_RF(arg)
-    #b1 = b1 * b01/d
+    r2 = v[i,XI]*v[i,XI] + v[i,YI]*v[i,YI]
+    b01 = 2.404825557695773 # first zero of J0
+    d = C_LIGHT*b01/omega
+    arg = (b01*b01)/(d*d)*r2
+    b0, b1 = bessel01_RF(arg)
+    b1 = b1 * b01/d
     beta_gamma = (1 + v[i,PZI])/tilde_m
     gamma = sqrt(1 + beta_gamma*beta_gamma)
     beta = beta_gamma/gamma
@@ -731,17 +771,17 @@ function omega_cavity(i, coords::Coords, a, tilde_m, omega, E0_over_Rref, t0, mm
     t = t0 - v[i,ZI]/vel
 
     phi_particle = omega*t
-    #s, c = sincos(phi_particle)
+    s, c = sincos(phi_particle)
 
     ez = E0_over_Rref*sin(phi_particle)
     ex = zero(ez)
     ey = ex
     e_vec = (ex, ey, ez)
 
-    #coeff = E0_over_Rref/C_LIGHT*b1*c
+    coeff = E0_over_Rref/C_LIGHT*b1*c
 
-    bx = ex #-coeff*v[i,YI]
-    by = ex #coeff*v[i,XI]
+    bx = -coeff*v[i,YI]
+    by = coeff*v[i,XI]
     bz = ex
     b_vec = (bx, by, bz)
 
