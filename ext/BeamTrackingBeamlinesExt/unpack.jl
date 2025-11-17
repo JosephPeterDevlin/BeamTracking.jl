@@ -104,7 +104,7 @@ function universal!(
     else
       gamma_ref = sqrt(1 + beta_gamma_ref^2)
       beta_ref = beta_gamma_ref / gamma_ref 
-      cav_L = beta_ref/(2*rfparams.rf_frequency)
+      cav_L = beta_ref*C_LIGHT/(2*rfparams.rf_frequency)
       drift_L = (L - cav_L)/2
       kc = push(kc, @inline(drift(tm, bunch, drift_L)))
       if !isactive(bmultipoleparams)

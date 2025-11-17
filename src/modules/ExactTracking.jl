@@ -260,11 +260,12 @@ provided, a linear hard-edge fringe map is applied at both ends.
   arg = v[i,PXI] / pt
   abs_arg = abs(arg)
   arg_1 = one(arg)
-  good_arg = (abs_arg <= arg_1)
+  arg_0 = zero(arg)
+  good_arg = (abs_arg < arg_1)
   coords.state[i] = vifelse(!good_arg & alive, STATE_LOST, coords.state[i])
   alive = (coords.state[i] == STATE_ALIVE)
 
-  phi1 = theta + asin(vifelse(good_arg, arg, arg_1))
+  phi1 = theta + asin(vifelse(good_arg, arg, arg_0))
   gp = Kn0 / pt
   h = 1 + g*v[i,XI] 
   cplus = cos(phi1) 

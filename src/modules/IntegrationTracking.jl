@@ -52,8 +52,10 @@ using ..BeamTracking: XI, PXI, YI, PYI, ZI, PZI, Q0, QX, QY, QZ, STATE_ALIVE, ST
 
 @makekernel fastgtpsa=true function order_two_integrator!(i, coords::Coords, ker, params, ds_step, num_steps, f1, f2, L)
   ExactTracking.linear_bend_fringe!(i, coords, f1)
+  ds = 0.0
   for _ in 1:num_steps
     ker(i, coords, update_t0(ker, params, ds)..., ds_step)
+    ds += ds_step
   end
   ExactTracking.linear_bend_fringe!(i, coords, f2)
 end
@@ -81,15 +83,23 @@ end
   w1 = -1.17767998417887100694641568096432*ds_step
   w2 =  0.235573213359358133684793182978535*ds_step
   w3 =  0.784513610477557263819497633866351*ds_step
+  ds = 0.0
   ExactTracking.linear_bend_fringe!(i, coords, f1)
   for _ in 1:num_steps
     ker(i, coords, update_t0(ker, params, ds)..., w3)
+    ds += w3
     ker(i, coords, update_t0(ker, params, ds)..., w2)
+    ds += w2
     ker(i, coords, update_t0(ker, params, ds)..., w1)
+    ds += w1
     ker(i, coords, update_t0(ker, params, ds)..., w0)
+    ds += w0
     ker(i, coords, update_t0(ker, params, ds)..., w1)
+    ds += w1
     ker(i, coords, update_t0(ker, params, ds)..., w2)
+    ds += w2
     ker(i, coords, update_t0(ker, params, ds)..., w3)
+    ds += w3
   end
   ExactTracking.linear_bend_fringe!(i, coords, f2)
 end
@@ -104,23 +114,39 @@ end
   w5 = -1.44485223686048*ds_step
   w6 =  0.253693336566229*ds_step
   w7 =  0.914844246229740*ds_step
+  ds = 0.0
   ExactTracking.linear_bend_fringe!(i, coords, f1)
   for _ in 1:num_steps
     ker(i, coords, update_t0(ker, params, ds)..., w7)
+    ds += w7
     ker(i, coords, update_t0(ker, params, ds)..., w6)
+    ds += w6
     ker(i, coords, update_t0(ker, params, ds)..., w5)
+    ds += w5
     ker(i, coords, update_t0(ker, params, ds)..., w4)
+    ds += w4
     ker(i, coords, update_t0(ker, params, ds)..., w3)
+    ds += w3
     ker(i, coords, update_t0(ker, params, ds)..., w2)
+    ds += w2
     ker(i, coords, update_t0(ker, params, ds)..., w1)
+    ds += w1
     ker(i, coords, update_t0(ker, params, ds)..., w0)
+    ds += w0
     ker(i, coords, update_t0(ker, params, ds)..., w1) 
+    ds += w1
     ker(i, coords, update_t0(ker, params, ds)..., w2)
-    ker(i, coords, update_t0(ker, params, ds)..., w3)
+    ds += w2
+    ker(i, coords, update_t0(ker, params, ds)..., w3) 
+    ds += w3
     ker(i, coords, update_t0(ker, params, ds)..., w4)
+    ds += w4
     ker(i, coords, update_t0(ker, params, ds)..., w5)
+    ds += w5
     ker(i, coords, update_t0(ker, params, ds)..., w6)
+    ds += w6
     ker(i, coords, update_t0(ker, params, ds)..., w7)
+    ds += w7
   end
   ExactTracking.linear_bend_fringe!(i, coords, f2)
 end
@@ -184,7 +210,7 @@ L: element length
   end
 
   if radiation_damping
-    deterministic_radiation!(   i, coords, q, mc2, E0, 0, mm, kn, ks, L / 2)
+    deterministic_radiation!(   i, coords, q, mc2, E0, 0, Tuple{}(), mm, kn, ks, L / 2)
   end
   #if radiation_fluctuations
   #  stochastic_radiation!(      i, coords, q, mc2, E0, 0, mm, kn, ks, L / 2)
@@ -202,7 +228,7 @@ L: element length
   #  stochastic_radiation!(      i, coords, q, mc2, E0, 0, mm, kn, ks, L / 2)
   #end
   if radiation_damping
-    deterministic_radiation!(   i, coords, q, mc2, E0, 0, mm, kn, ks, L / 2)
+    deterministic_radiation!(   i, coords, q, mc2, E0, 0, Tuple{}(), mm, kn, ks, L / 2)
   end
 
   if !isnothing(coords.q)
@@ -348,7 +374,7 @@ Arguments
   end
 
   if radiation_damping
-    deterministic_radiation!(   i, coords, q, mc2, E0, g, mm, kn, ks, L / 2)
+    deterministic_radiation!(   i, coords, q, mc2, E0, g, Tuple{}(), mm, kn, ks, L / 2)
   end
   #if radiation_fluctuations
   #  stochastic_radiation!(      i, coords, q, mc2, E0, g, mm, kn, ks, L / 2)
@@ -362,7 +388,7 @@ Arguments
   #  stochastic_radiation!(      i, coords, q, mc2, E0, g, mm, kn, ks, L / 2)
   #end
   if radiation_damping
-    deterministic_radiation!(   i, coords, q, mc2, E0, g, mm, kn, ks, L / 2)
+    deterministic_radiation!(   i, coords, q, mc2, E0, g, Tuple{}(), mm, kn, ks, L / 2)
   end
 
   if !isnothing(coords.q)
@@ -406,7 +432,7 @@ L:  element length
   ExactTracking.exact_solenoid!(  i, coords, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
 
   if radiation_damping
-    deterministic_radiation!(     i, coords, q, mc2, E0, 0, mm, kn, ks, L / 2)
+    deterministic_radiation!(     i, coords, q, mc2, E0, 0, Tuple{}(), mm, kn, ks, L / 2)
   end
   #if radiation_fluctuations
   #  stochastic_radiation!(        i, coords, q, mc2, E0, 0, mm, kn, ks, L / 2)
@@ -424,7 +450,7 @@ L:  element length
   #  stochastic_radiation!(        i, coords, q, mc2, E0, 0, mm, kn, ks, L / 2)
   #end
   if radiation_damping
-    deterministic_radiation!(     i, coords, q, mc2, E0, 0, mm, kn, ks, L / 2)
+    deterministic_radiation!(     i, coords, q, mc2, E0, 0, Tuple{}(), mm, kn, ks, L / 2)
   end
 
   ExactTracking.exact_solenoid!(  i, coords, Ksol, beta_0, gamsqr_0, tilde_m, L / 2)
@@ -464,7 +490,7 @@ L:  element length
   ExactTracking.exact_drift!(     i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
 
   if radiation_damping
-    deterministic_radiation!(     i, coords, q, mc2, E0, 0, mm, kn, ks, L / 2)
+    deterministic_radiation!(     i, coords, q, mc2, E0, 0, Tuple{}(), mm, kn, ks, L / 2)
   end
   #if radiation_fluctuations
   #  stochastic_radiation!(        i, coords, q, mc2, E0, 0, mm, kn, ks, L / 2)
@@ -482,7 +508,7 @@ L:  element length
   #  stochastic_radiation!(        i, coords, q, mc2, E0, 0, mm, kn, ks, L / 2)
   #end
   if radiation_damping
-    deterministic_radiation!(     i, coords, q, mc2, E0, 0, mm, kn, ks, L / 2)
+    deterministic_radiation!(     i, coords, q, mc2, E0, 0, Tuple{}(), mm, kn, ks, L / 2)
   end
 
   ExactTracking.exact_drift!(     i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
@@ -614,15 +640,13 @@ end
   else
     ExactTracking.exact_drift!(   i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
   end
-  t0 = t0 + (L/2)/(beta_0*C_LIGHT)
+  t0 += (L/2)/(beta_0*C_LIGHT)
+
+  if radiation_damping
+    deterministic_radiation!(   i, coords, q, mc2, E_ref, 0, (omega, E0_over_Rref, t0), mm, kn, ks, L / 2)
+  end
 
   if multipoles
-    if radiation_damping
-      deterministic_radiation!(   i, coords, q, mc2, E_ref, 0, mm, kn, ks, L / 2)
-    end
-    #if radiation_fluctuations
-    #  stochastic_radiation!(      i, coords, q, mc2, E_ref, 0, mm, kn, ks, L / 2)
-    #end
     ExactTracking.multipole_kick!(i, coords, mm, kn * L / 2, ks * L / 2, -1)
   end
 
@@ -636,12 +660,10 @@ end
 
   if multipoles
     ExactTracking.multipole_kick!(i, coords, mm, kn * L / 2, ks * L / 2, -1)
-    #if radiation_fluctuations
-    #  stochastic_radiation!(      i, coords, q, mc2, E_ref, 0, mm, kn, ks, L / 2)
-    #end
-    if radiation_damping
-      deterministic_radiation!(   i, coords, q, mc2, E_ref, 0, mm, kn, ks, L / 2)
-    end
+  end
+
+  if radiation_damping
+    deterministic_radiation!(   i, coords, q, mc2, E_ref, 0, (omega, E0_over_Rref, t0), mm, kn, ks, L / 2)
   end
 
   if sol
@@ -649,7 +671,7 @@ end
   else
     ExactTracking.exact_drift!(   i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
   end
-  t0 = t0 + (L/2)/(beta_0*C_LIGHT)
+  t0 += (L/2)/(beta_0*C_LIGHT)
   cavity_fringe!(i, coords, beta_0, tilde_m, omega, -E0_over_Rref, t0)
 end
 
@@ -692,6 +714,7 @@ end
   alive = (coords.state[i] == STATE_ALIVE)
 
   bmad_to_mad!(i, coords, beta_0, tilde_m, E_ref, p0c)
+
   r2 = v[i,XI]*v[i,XI] + v[i,YI]*v[i,YI]
   b01 = 2.404825557695773 # first zero of J0
   d = C_LIGHT*b01/omega
@@ -781,8 +804,8 @@ function omega_cavity(i, coords::Coords, a, tilde_m, omega, E0_over_Rref, t0, mm
     coeff = E0_over_Rref/C_LIGHT*b1*c
 
     bx = -coeff*v[i,YI]
-    by = coeff*v[i,XI]
-    bz = ex
+    by =  coeff*v[i,XI]
+    bz =  ex
     b_vec = (bx, by, bz)
 
     if length(mm) > 0 && mm[1] == 0
@@ -869,10 +892,10 @@ end
 end
 
 
-@makekernel fastgtpsa=true function deterministic_radiation!(i, coords::Coords, q, mc2, E0, g, mm, kn, ks, L)
+@makekernel fastgtpsa=true function deterministic_radiation!(i, coords::Coords, q, mc2, E0, g, cavity_params, mm, kn, ks, L)
   v = coords.v
 
-  if mm[1] == 0
+  if length(mm) > 0 && mm[1] == 0
     ax = -v[i,YI] * kn[1] / 2
     ay =  v[i,XI] * kn[1] / 2
   else
@@ -894,9 +917,34 @@ end
   pl2_1 = one(pl2)
   pl = sqrt(vifelse(good_momenta, pl2, pl2_1)) 
 
-  bx, by = ExactTracking.normalized_field(mm, kn, ks, v[i,XI], v[i,YI], -1)
-  bz_0 = zero(kn[1])
-  bz = mm[1] == 0 ? kn[1] : bz_0
+  bx, by, bz = 0, 0, 0
+
+  if length(mm) > 0
+    bx_m, by_m = ExactTracking.normalized_field(mm, kn, ks, v[i,XI], v[i,YI], -1)
+    bx += bx_m 
+    by += by_m
+    if mm[1] == 0
+      bz += kn[1]
+    end
+  end
+
+  if length(cavity_params) > 0
+    omega, E0_over_Rref, t0 = cavity_params
+    r2 = v[i,XI]*v[i,XI] + v[i,YI]*v[i,YI]
+    b01 = 2.404825557695773 # first zero of J0
+    d = C_LIGHT*b01/omega
+    arg = (b01*b01)/(d*d)*r2
+    b0, b1 = bessel01_RF(arg)
+    b1 = b1 * b01/d
+    t = t0 - v[i,ZI]/C_LIGHT # radiation is only accurate for ultrarelativistic particles
+
+    phi_particle = omega*t
+
+    coeff = E0_over_Rref/C_LIGHT*b1*cos(phi_particle)
+
+    bx += -coeff*v[i,YI]
+    by +=  coeff*v[i,XI]
+  end
 
   betax = v[i,PXI] / pl
   betay = v[i,PYI] / pl
