@@ -272,14 +272,14 @@ end
 @inline function thick_pure_rf(tm::Union{SplitIntegration,DriftKick}, bunch, rf, bl, L)
   R_ref = bunch.R_ref
   tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, R_ref)
-  E0_over_Rref = rf.voltage/L/R_ref
+  E0_over_Rref = sign(chargeof(bunch.species))*rf.voltage/L/R_ref/sincu(pi/(2*beta_0))
   if rf.harmon_master
     circumference = bl.beamline.line[end].s_downstream
     omega = 2*pi*rf.harmon*C_LIGHT*beta_0/circumference
   else
     omega = 2*pi*rf.rf_frequency
   end
-  phi0 = rf.phi0
+  phi0 = rf.phi0 + pi/2
   t0 = phi0/omega 
   E_ref = BeamTracking.R_to_E(bunch.species, R_ref)
   p0c = BeamTracking.R_to_pc(bunch.species, R_ref)
@@ -292,14 +292,14 @@ end
 @inline function thick_bmultipole_rf(tm::Union{SplitIntegration,DriftKick,SolenoidKick}, bunch, bm, rf, bl, L)
   R_ref = bunch.R_ref
   tilde_m, gamsqr_0, beta_0 = ExactTracking.drift_params(bunch.species, R_ref)
-  E0_over_Rref = rf.voltage/L/R_ref
+  E0_over_Rref = sign(chargeof(bunch.species))*rf.voltage/L/R_ref/sincu(pi/(2*beta_0))
   if rf.harmon_master
     circumference = bl.beamline.line[end].s_downstream
     omega = 2*pi*rf.harmon*C_LIGHT*beta_0/circumference
   else
     omega = 2*pi*rf.rf_frequency
   end
-  phi0 = rf.phi0
+  phi0 = rf.phi0 + pi/2
   t0 = phi0/omega
   mm = bm.order
   kn, ks = get_strengths(bm, L, R_ref)
