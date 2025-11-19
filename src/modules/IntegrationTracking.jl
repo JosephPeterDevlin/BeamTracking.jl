@@ -66,6 +66,9 @@ end
   w1 =  1.3512071919596577718181151794851757586002349853515625*ds_step
   ds = 0.0
   ExactTracking.linear_bend_fringe!(i, coords, f1)
+  if ker == cavity!
+    cavity_fringe!(i, coords, params[5], params[7], params[8], params[9], params[11], params[12], params[13])
+  end
   for _ in 1:num_steps
     ker(i, coords, update_t0(ker, params, ds)..., w1)
     ds += w1
@@ -75,6 +78,9 @@ end
     ds += w1
   end
   ExactTracking.linear_bend_fringe!(i, coords, f2)
+  if ker == cavity!
+    cavity_fringe!(i, coords, params[5], params[7], params[8], params[9], params[11], -params[12], params[13] + L/(params[5]*C_LIGHT))
+  end
 end
 
 
@@ -632,15 +638,17 @@ end
 # ===============  R F  ===============
 #
 @makekernel fastgtpsa=true function cavity!(i, coords::Coords, q, mc2, radiation_damping, radiation_fluctuations, beta_0, gamsqr_0, tilde_m, E_ref, p0c, a, omega, E0_over_Rref, t0, mm, kn, ks, L)
-  cavity_fringe!(i, coords, beta_0, tilde_m, omega, E0_over_Rref, t0)
   multipoles = (length(mm) > 0)
   sol = (multipoles && mm[1] == 0)
+
+  #cavity_fringe!(i, coords, beta_0, tilde_m, E_ref, p0c, omega, E0_over_Rref, t0)
+  t0 += (L/2)/(beta_0*C_LIGHT)
+
   if sol
     ExactTracking.exact_solenoid!(i, coords, kn[1], beta_0, gamsqr_0, tilde_m, L / 2)
   else
     ExactTracking.exact_drift!(   i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
   end
-  t0 += (L/2)/(beta_0*C_LIGHT)
 
   if radiation_damping
     deterministic_radiation!(   i, coords, q, mc2, E_ref, 0, (omega, E0_over_Rref, t0), mm, kn, ks, L / 2)
@@ -671,8 +679,9 @@ end
   else
     ExactTracking.exact_drift!(   i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
   end
-  t0 += (L/2)/(beta_0*C_LIGHT)
-  cavity_fringe!(i, coords, beta_0, tilde_m, omega, -E0_over_Rref, t0)
+
+  #t0 += (L/2)/(beta_0*C_LIGHT)
+  #cavity_fringe!(i, coords, beta_0, tilde_m, E_ref, p0c, omega, -E0_over_Rref, t0)
 end
 
 
@@ -745,9 +754,11 @@ end
 end
 
 
-@makekernel fastgtpsa=true function cavity_fringe!(i, coords::Coords, beta_0, tilde_m, omega, E0_over_Rref, t0)
+@makekernel fastgtpsa=true function cavity_fringe!(i, coords::Coords, beta_0, tilde_m, E_ref, p0c, omega, E0_over_Rref, t0)
   v = coords.v 
   alive = (coords.state[i] == STATE_ALIVE)
+
+  bmad_to_mad!(i, coords, beta_0, tilde_m, E_ref, p0c)
 
   r2 = v[i,XI]*v[i,XI] + v[i,YI]*v[i,YI]
   b01 = 2.404825557695773 # first zero of J0
@@ -755,25 +766,28 @@ end
   arg = (b01*b01)/(d*d)*r2
   b0, b1 = bessel01_RF(arg)
   #b1 = b1 * b01/d I don't want that here
-  beta_gamma = (1 + v[i,PZI])/tilde_m
-  gamma = sqrt(1 + beta_gamma*beta_gamma)
-  beta = beta_gamma/gamma
-  vel = beta*C_LIGHT
-  t = t0 - v[i,ZI]/vel
+  vel_0 = beta_0*C_LIGHT
+
+  t = t0 - v[i,ZI]/C_LIGHT
 
   px_0 = v[i,PXI]
   py_0 = v[i,PYI]
+  pz_0 = v[i,PZI]
 
   phi_particle = omega*t
   s, c = sincos(phi_particle)
 
-  coeff = E0_over_Rref*b1*s/vel
+  coeff = E0_over_Rref*b1/vel_0*s
 
   new_px = px_0 - coeff*v[i,XI]
   new_py = py_0 - coeff*v[i,YI]
+  new_pz = pz_0 - abs(E0_over_Rref)*d*d*omega/(b01*b01*vel_0*C_LIGHT)*b0*c
 
   v[i,PXI] = vifelse(alive, new_px, px_0)
   v[i,PYI] = vifelse(alive, new_py, py_0)
+  v[i,PZI] = vifelse(alive, new_pz, pz_0)
+
+  mad_to_bmad!(i, coords, beta_0, tilde_m, E_ref, p0c)
 end
 
 
