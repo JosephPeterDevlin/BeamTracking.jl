@@ -151,3 +151,13 @@ end
   params = (backend, tilde_m, gamma_0, Val{tm.ibs_damping_on}(), Val{tm.ibs_fluctuations_on}(), b_coeff, integrals, diffusion_lambdas, diffusion_P, P, sigma_inv_t, means, g, w, w_inv, L)
   return make_kernel_call(BeamTracking.ibs_damping_and_diffusion!, params)
 end
+
+@inline function sr_wake(tm, p_over_q_ref, bunch, wakeparams, L)
+  tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, bunch.p_over_q_ref)
+  tmax = -minimum(bunch.coords.v, dims=1)[ZI]/(beta_0*C_LIGHT)
+  tmin = -maximum(bunch.coords.v, dims=1)[ZI]/(beta_0*C_LIGHT)
+  Tbunch = tmax - tmin
+  tmin = tmin - Tbunch
+  tmax = tmax + Tbunch
+  dt = 3*Tbunch/length(bunch.coords.longitudinal_density)
+end
