@@ -70,11 +70,11 @@ function universal!(
     beta_gamma_ref0 = R_to_beta_gamma(bunch.species, p_over_q_ref)
   end
 
-  # Current KernelChain length is 9 because we have up to
+  # Current KernelChain length is 11 because we have up to
   # 2 aperture, 2 alignment, 1 body kernel, 1 IBS kernel,
   # 2 kernels to update the particles' reference energy,
-  # and 2 for coordinate conversion with implicit
-  kc = KernelChain(Val{10}(), RefState(bunch.t_ref, beta_gamma_ref0))
+  # 2 for coordinate conversion with implicit, and 1 for longitudinal binning
+  kc = KernelChain(Val{11}(), RefState(bunch.t_ref, beta_gamma_ref0))
 
   p_over_q_ref_initial = bunch.p_over_q_ref
   ramp_per_particle = p_over_q_ref isa TimeDependentParam && ramp_update_each_particle
@@ -105,6 +105,10 @@ function universal!(
     end
   elseif isactive(apertureparams)
     kc = push(kc, @inline(aperture(tm, p_over_q_ref, bunch, apertureparams, true)))
+  end
+
+  if !isnothing(bunch.coords.longitudinal_density)
+    kc = push(kc, @inline(deposit_long(tm, p_over_q_ref, bunch)))
   end
 
   if ((hasfield(typeof(tm), :ibs_damping_on) && hasfield(typeof(tm), :ibs_fluctuations_on)) 

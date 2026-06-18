@@ -88,6 +88,11 @@ This is usful if angle can be near zero where the direct evaluation of `(1 - cos
 """
 one_cos_norm(x) = 0.5 * sincu(0.5*x)^2
 
+
+function Int(x::SIMD.Vec{N, T}) where {N, T}
+  return SIMDMathFunctions.vmap(Int, x)
+end
+
 #=
 """
 This function computes J_0(sqrt(x)) and J_1(sqrt(x))/sqrt(x), which are 

@@ -12,7 +12,7 @@ function snake(q, alpha)
 end
 =#
 
-@eles begin
+@elements begin
    SNAKE1 = LineElement() #LineElement(transport_map = (v,q) -> (v, snake(q,  pi/4))) 
    SNAKE2 = LineElement() #LineElement(transport_map = (v,q) -> (v, snake(q, -pi/4))) 
    SNAKE3 = LineElement() #LineElement(transport_map = (v,q) -> (v, snake(q,  pi/4)))  

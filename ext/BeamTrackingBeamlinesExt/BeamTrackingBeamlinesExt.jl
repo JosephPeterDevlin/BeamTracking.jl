@@ -5,7 +5,8 @@ using BeamTracking: R_to_E, R_to_beta_gamma, R_to_gamma, R_to_pc, R_to_v,
                     beta_gamma_to_v, E_to_R, E_to_v,
                     @makekernel, Coords, make_kernel_call, KernelCall, KernelChain, push, TimeDependentParam, RefState, 
                     launch!, AbstractYoshida, rot_quaternion, inv_rot_quaternion, atan2, 
-                    get_N_particle, mean_and_cov, ibs_integrals
+                    get_N_particle, mean_and_cov, ibs_integrals, 
+                    XI, PXI, YI, PYI, ZI, PZI, Q0, QX, QY, QZ
                     
 import BeamTracking: track!
 
