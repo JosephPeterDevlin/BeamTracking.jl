@@ -7,6 +7,7 @@ using BeamTracking: R_to_E, R_to_beta_gamma, R_to_gamma, R_to_pc, R_to_v,
                     launch!, AbstractYoshida, rot_quaternion, inv_rot_quaternion, atan2, 
                     get_N_particle, mean_and_cov, ibs_integrals, 
                     XI, PXI, YI, PYI, ZI, PZI, Q0, QX, QY, QZ
+                    get_N_particle, mean_and_cov, ibs_integrals, remake, push_transforms_in, push_transforms_out
                     
 import BeamTracking: track!
 
