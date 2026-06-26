@@ -21,30 +21,31 @@ const STATE_LOST_Z                  = UInt8(8)
 const STATE_IMPLICIT_NONCONVERGENCE = UInt8(9)
 
 # Always SOA
-struct Coords{S,V,Q,W,T}
-  state::S # Array of particle states
-  v::V     # Matrix of particle coordinates
-  q::Q     # Matrix of particle quaternions if spin else nothing 
-  weight::W     # Array of particle weights if weighted else nothing
-  callbacks::T  # Tuple of functions to evaluate inside kernels
-  function Coords(state, v, q, weight, callbacks)
+struct Coords{S,V,Q,W,T,U}
+  state::S                 # Array of particle states
+  v::V                     # Matrix of particle coordinates
+  q::Q                     # Matrix of particle quaternions if spin else nothing 
+  weight::W                # Array of particle weights if weighted else nothing
+  callbacks::T             # Tuple of functions to evaluate inside kernels
+  longitudinal_density::U  # Array for binned longitudinal density
+  function Coords(state, v, q, weight, callbacks, longitudinal_density)
     if !isnothing(q) && eltype(v) != eltype(q)
       error("Cannot initialize Coords with orbital coordinates of type $(eltype(v))
              and quaternion coordinates of type $(typeof(q)).")
     end
-    return new{typeof(state),typeof(v),typeof(q),typeof(weight),typeof(callbacks)}(state, v, q, weight, callbacks)
+    return new{typeof(state),typeof(v),typeof(q),typeof(weight),typeof(callbacks),typeof(longitudinal_density)}(state, v, q, weight, callbacks, longitudinal_density)
   end
 end
 
 mutable struct Bunch{B,T,C<:Coords}
   species::Species # Species
-  p_over_q_ref::B         # Defines normalization of phase space coordinates
+  p_over_q_ref::B  # Defines normalization of phase space coordinates
   t_ref::T         # Reference time
   const coords::C  # GPU compatible structure of particles
 end
 
 function Base.getproperty(b0::Bunch, key::Symbol)
-  if key in (:state, :v, :q, :weight, :callbacks)
+  if key in (:state, :v, :q, :weight, :callbacks, :longitudinal_density)
     return getproperty(b0.coords, key)
   else
     return getfield(b0, key)
@@ -85,6 +86,8 @@ Construct a `Bunch` of particles for tracking.
    or perhaps `s` position), then the callback should be a *closure* that reads/writes 
    to an outside mutable state each execution. 
   Defaults to `()`.
+- `longitudinal_density`: Array to store binned longitudinal density, or `nothing` 
+  if not needed. Defaults to `nothing`. 
 - `p_over_q_ref`: Reference momentum-over-charge defining the normalization 
   of the phase space coordinates.
 - `t_ref=0.`: Reference time.
@@ -107,27 +110,28 @@ function Bunch(;
   q= spin ? (qs = similar(v, (size(v, 1), 4)); qs .= 0; qs[:,1] .= 1; qs) : nothing,
   weight=nothing,
   callbacks=(),
+  longitudinal_density=nothing,
   p_over_q_ref=NaN, 
   t_ref=0., 
   species=Species(),
 )
   size(v, 2) == 6 || error("The number of columns of the particle coordinates vector `v` must be equal to 6")
-  return Bunch(species, p_over_q_ref, t_ref, Coords(state, v, q, weight, callbacks))
+  return Bunch(species, p_over_q_ref, t_ref, Coords(state, v, q, weight, callbacks, longitudinal_density))
 end
 
-function Bunch(v::AbstractMatrix, q=nothing, weight=nothing; p_over_q_ref=NaN, t_ref=0., species=Species(), callbacks=())
+function Bunch(v::AbstractMatrix, q=nothing, weight=nothing; p_over_q_ref=NaN, t_ref=0., species=Species(), callbacks=(), longitudinal_density=nothing)
   size(v, 2) == 6 || error("The number of columns must be equal to 6")
   N_particle = size(v, 1)
   state = similar(v, UInt8, N_particle)
   state .= STATE_ALIVE
-  return Bunch(species, p_over_q_ref, t_ref, Coords(state, v, q, weight, callbacks))
+  return Bunch(species, p_over_q_ref, t_ref, Coords(state, v, q, weight, callbacks, longitudinal_density))
 end
 
-function Bunch(v::AbstractVector, q=nothing, weight=nothing; p_over_q_ref=NaN, t_ref=0., species=Species(), callbacks=())
+function Bunch(v::AbstractVector, q=nothing, weight=nothing; p_over_q_ref=NaN, t_ref=0., species=Species(), callbacks=(), longitudinal_density=nothing)
   length(v) == 6 || error("Bunch accepts a N x 6 matrix of N particle coordinates,
                             or alternatively a single particle as a vector. Received 
                             a vector of length $(length(v))")
-  return Bunch(reshape(v, (1,6)), q, weight; p_over_q_ref=p_over_q_ref, t_ref=t_ref, species=species, callbacks=callbacks)
+  return Bunch(reshape(v, (1,6)), q, weight; p_over_q_ref=p_over_q_ref, t_ref=t_ref, species=species, callbacks=callbacks, longitudinal_density=longitudinal_density)
 end
 
 struct ParticleView{B,T,S,V,Q,W}
