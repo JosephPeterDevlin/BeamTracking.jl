@@ -16,7 +16,8 @@ using GTPSA,
       Statistics,
       LinearAlgebra,
       TPSAInterface,
-      ForwardDiff
+      ForwardDiff,
+      FFTW
 
 using KernelAbstractions
 
@@ -65,6 +66,7 @@ include("kernels/ibs_kick.jl")
 include("kernels/implicit.jl")
 include("kernels/thin.jl")
 include("kernels/bin_long.jl")
+include("kernels/srwake.jl")
 
 include("utils/find_stuff.jl")
 

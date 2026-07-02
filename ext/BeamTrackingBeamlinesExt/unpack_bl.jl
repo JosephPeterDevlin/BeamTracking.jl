@@ -24,6 +24,7 @@ function _track!(
   rp = deval(ele.RFParams)
   lp = deval(ele.BeamlineParams)
   fpp = deval(ele.FourPotentialParams)
+  srwp = deval(ele.SRWakeParams)
 
   if scalar_params
     L = scalarize(L)
@@ -36,11 +37,12 @@ function _track!(
     rp = scalarize(rp)
     lp = scalarize(lp)
     fpp = scalarize(fpp)
+    srwp = scalarize(srwp)
     p_over_q_ref = scalarize(p_over_q_ref)
   end
 
   # Function barrier
-  universal!(coords, tm, ele, ramp_particle_energy_without_rf, ramp_update_each_particle, bunch, L, p_over_q_ref, ap, bp, bm, pp, dp, rp, lp, mp, fpp; kwargs...)
+  universal!(coords, tm, ele, ramp_particle_energy_without_rf, ramp_update_each_particle, bunch, L, p_over_q_ref, ap, bp, bm, pp, dp, rp, lp, mp, fpp, srwp; kwargs...)
 end
 
 # Step 2: Push particles through -----------------------------------------
@@ -61,7 +63,8 @@ function universal!(
   rfparams,
   beamlineparams,
   mapparams,
-  fourpotentialparams;
+  fourpotentialparams,
+  srwakeparams;
   kwargs...
 ) 
   # Compute information about reference coordinate system:
@@ -82,11 +85,12 @@ function universal!(
     beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref)
   end
   
-  # Current KernelChain length is 10 because we have up to
+  # Current KernelChain length is 12 because we have up to
   # 2 aperture, 2 alignment, 1 body kernel, 1 IBS kernel,
   # 2 kernels to update the particles' reference energy,
-  # and 2 for coordinate conversion with implicit
-  kc = KernelChain(Val{10}(), RefState(; t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step))
+  # 2 for coordinate conversion with implicit,
+  # and 2 for wakefields
+  kc = KernelChain(Val{12}(), RefState(; t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step))
 
   p_over_q_ref_initial = bunch.p_over_q_ref
   ramp_per_particle = p_over_q_ref isa TimeDependentParam && ramp_update_each_particle
@@ -125,6 +129,11 @@ function universal!(
     && (tm.ibs_damping_on || tm.ibs_fluctuations_on) && L > 0)
     bp = ifelse(isactive(bendparams), bendparams, nothing)
     kc = @inline(ibs_kick(tm, kc, p_over_q_ref, bunch, bp, L))
+  end
+
+  if isactive(srwakeparams)
+    kc = @inline(bin_long(tm, kc, p_over_q_ref, bunch, srwakeparams.sr_longitudinal_wake_dt))
+    kc = @inline(srwake_long(tm, kc, p_over_q_ref, bunch, srwakeparams.sr_longitudinal_wake, srwakeparams.sr_longitudinal_wake_dt))
   end
 
   if isactive(mapparams)    

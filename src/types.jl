@@ -134,7 +134,7 @@ function Bunch(v::AbstractVector, q=nothing, weight=nothing; p_over_q_ref=NaN, t
   return Bunch(reshape(v, (1,6)), q, weight; p_over_q_ref=p_over_q_ref, t_ref=t_ref, species=species, callbacks=callbacks, longitudinal_density=longitudinal_density)
 end
 
-struct ParticleView{B,T,S,V,Q,W}
+struct ParticleView{B,T,S,V,Q,W,D}
   index::Int
   species::Species
   p_over_q_ref::B  
@@ -143,6 +143,7 @@ struct ParticleView{B,T,S,V,Q,W}
   v::V
   q::Q
   weight::W
+  longitudinal_density::D
   ParticleView(args...) = new{typeof.(args)...}(args...)
 end
 
@@ -150,5 +151,6 @@ function ParticleView(bunch::Bunch, i=1)
   v = bunch.coords.v
   q = bunch.coords.q
   weight = bunch.coords.weight
-  return ParticleView(i, bunch.species, bunch.p_over_q_ref, bunch.t_ref, bunch.coords.state[i], view(v, :, i), isnothing(q) ? q : view(q, :, i), isnothing(weight) ? weight : weight[i])
+  longitudinal_density = bunch.coords.longitudinal_density
+  return ParticleView(i, bunch.species, bunch.p_over_q_ref, bunch.t_ref, bunch.coords.state[i], view(v, :, i), isnothing(q) ? q : view(q, :, i), isnothing(weight) ? weight : weight[i], isnothing(longitudinal_density) ? longitudinal_density : view(longitudinal_density, i))
 end

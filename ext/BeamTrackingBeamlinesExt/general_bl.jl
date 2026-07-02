@@ -166,3 +166,29 @@ end
   params = (backend, tilde_m, gamma_0, Val{tm.ibs_damping_on}(), Val{tm.ibs_fluctuations_on}(), b_coeff, integrals, diffusion_lambdas, diffusion_P, P, sigma_inv_t, means, g, w, w_inv, L)
   return push(kc, make_kernel_call(BeamTracking.ibs_damping_and_diffusion!, params))
 end
+
+
+@inline function bin_long(tm, kc, p_over_q_ref, bunch, dt)
+  !isnothing(bunch.coords.longitudinal_density) || error("Longitudinal density not allocated")
+  tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, bunch.p_over_q_ref)
+  center = -mean(bunch.coords.v, dims=1)[ZI]/(beta_0*C_LIGHT)
+  off = dt*length(bunch.coords.longitudinal_density)/2
+  tmin = center - off
+  tmax = center + off
+  return push(kc, make_kernel_call(BeamTracking.bin_long!, (tilde_m, tmin, tmax, dt)))
+end
+
+
+@inline function srwake_long(tm, kc, p_over_q_ref, bunch, wake, dt)
+  length(bunch.coords.longitudinal_density) == length(wake) || errror("Longitudinal_density and wake must have the same length")
+  ispow2(length(wake)) || error("Longitudinal density length must be a power of 2")
+  tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, bunch.p_over_q_ref)
+  dens_fft = rfft(bunch.coords.longitudinal_density)
+  wake_fft = rfft(wake)
+  voltage_fft = dens_fft .* wake_fft
+  voltage = (-chargeof(bunch.species) * E_CHARGE) .* irfft(voltage_fft, length(wake))
+  voltage = voltage ./ (p_over_q_ref * C_LIGHT)
+  center = -mean(bunch.coords.v, dims=1)[ZI]/(beta_0*C_LIGHT)
+  tmin = center - dt*length(bunch.coords.longitudinal_density)/2
+  return push(kc, make_kernel_call(BeamTracking.srwake_long!, (tilde_m, tmin, dt, voltage)))
+end
