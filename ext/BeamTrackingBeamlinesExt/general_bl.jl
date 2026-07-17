@@ -180,7 +180,7 @@ end
 
 
 @inline function srwake_long(tm, kc, p_over_q_ref, bunch, wake, dt)
-  length(bunch.coords.longitudinal_density) == length(wake) || errror("Longitudinal_density and wake must have the same length")
+  length(bunch.coords.longitudinal_density) == length(wake) || error("Longitudinal_density and wake must have the same length")
   ispow2(length(wake)) || error("Longitudinal density length must be a power of 2")
   tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, bunch.p_over_q_ref)
   dens_fft = rfft(bunch.coords.longitudinal_density)

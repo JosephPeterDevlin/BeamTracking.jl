@@ -28,7 +28,7 @@ L: element length
   coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
 
   if !isnothing(coords.q)
-    rotate_spin!(i, coords, a, 0, tilde_m, mm, kn, ks, L / 2)
+    rotate_spin!(i, coords, a, 0, tilde_m, mm, knl, ksl, -1)
   end
 
   if !isnothing(radiation_params)
@@ -37,7 +37,9 @@ L: element length
   end
 
   multipole_kick!(i, coords, mm, knl, ksl, 2)
+
   quadrupole_kick!(i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
+
   if !isnothing(w)
     rotation!(i, coords, w, 0)
   end
@@ -45,7 +47,9 @@ L: element length
   if !isnothing(w_inv)
     rotation!(i, coords, w_inv, 0)
   end
+
   quadrupole_kick!(i, coords, beta_0, gamsqr_0, tilde_m, L / 2)
+  
   multipole_kick!(i, coords, mm, knl, ksl, 2)
 
   if !isnothing(radiation_params)
@@ -53,7 +57,7 @@ L: element length
   end
 
   if !isnothing(coords.q)
-    rotate_spin!(i, coords, a, 0, tilde_m, mm, kn, ks, L / 2)
+    rotate_spin!(i, coords, a, 0, tilde_m, mm, knl, ksl, -1)
   end
 end
 
@@ -73,39 +77,36 @@ s: element length
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
 
-  focus = k1 >= 0  # horizontally focusing if positive
+  focus = (k1 >= 0)  # horizontally focusing if positive
 
   rel_p = 1 + v[i,PZI]
   xp = v[i,PXI] / rel_p  # x'
   yp = v[i,PYI] / rel_p  # y'
-  sqrtks = sqrt(abs(k1 / rel_p)) * s  # |κ|s
+  arg = k1*s*s/rel_p
 
-  cosine = cos(sqrtks)
-  coshine = cosh(sqrtks)
-  sinecu = sincu(sqrtks)
-  shinecu = sinhcu(sqrtks)
-  cx = vifelse(focus, cosine, coshine)
+  sinecu,  cosine  = sincos_quaternion( arg)
+  shinecu, coshine = sincos_quaternion(-arg)
+  cx = vifelse(focus, cosine,  coshine)
   cy = vifelse(focus, coshine, cosine)
-  sx = vifelse(focus, sinecu, shinecu)
+  sx = vifelse(focus, sinecu,  shinecu)
   sy = vifelse(focus, shinecu, sinecu)
 
-  new_px = v[i,PXI] * cx - k1 * s * v[i,XI] * sx
-  new_py = v[i,PYI] * cy + k1 * s * v[i,YI] * sy
-  new_z = v[i,ZI]  - (s / 4) * (  xp*xp * (1 + sx * cx)
-                                    + yp*yp * (1 + sy * cy)
-                                    + k1 / (1 + v[i,PZI])
+  new_px = v[i,PXI] * cx - k1 * v[i,XI] * s * sx
+  new_py = v[i,PYI] * cy + k1 * v[i,YI] * s * sy
+  new_z  = v[i,ZI]  - (s / 4) * (  xp * xp * (1 + sx * cx)
+                                    + yp * yp * (1 + sy * cy)
+                                    + k1 / rel_p
                                         * ( v[i,XI]*v[i,XI] * (1 - sx * cx)
                                           - v[i,YI]*v[i,YI] * (1 - sy * cy) )
-                                  ) + sign(k1) * ( v[i,XI] * xp * (sqrtks * sx)* 
-                                  (sqrtks * sx) - v[i,YI] * yp * (sqrtks * sy)*
-                                  (sqrtks * sy) ) / 2
-  new_x = v[i,XI] * cx + xp * s * sx
-  new_y = v[i,YI] * cy + yp * s * sy
+                                  ) + arg * (v[i,XI] * xp * sx * sx
+                                  - v[i,YI] * yp * sy * sy) / 2
+  new_x  = v[i,XI] * cx + xp * s * sx
+  new_y  = v[i,YI] * cy + yp * s * sy
   v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
   v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
-  v[i,ZI]  = vifelse(alive, new_z, v[i,ZI])
-  v[i,XI]  = vifelse(alive, new_x, v[i,XI])
-  v[i,YI]  = vifelse(alive, new_y, v[i,YI])
+  v[i,ZI]  = vifelse(alive, new_z,  v[i,ZI])
+  v[i,XI]  = vifelse(alive, new_x,  v[i,XI])
+  v[i,YI]  = vifelse(alive, new_y,  v[i,YI])
 end 
 
 
