@@ -201,22 +201,12 @@ function quadrupole_magnus!(i, coords::Coords, k1, tilde_m, a, s)
   gamma_minus_1 = beta_gamma2/(1 + sqrt(1 + beta_gamma2))
   gamma = gamma_minus_1 + 1
   chi = 1 + a*gamma
-  coeff1 = -k1*chi*s/rel_p
-  coeff2 = -k1*chi*pt2*s/(ps*rel_p*(ps + rel_p))
-  coeff3 =  k1*a*gamma_minus_1*s*(y*xp + x*yp)/ps
+  coeff1 = -k1*chi*s/ps
+  coeff2 = -k1*a*gamma_minus_1*s/(10*ps)
 
-  b01 = coeff1*y*sy
-  b02 = coeff1*x*sx
-  b03 = a*k1*gamma_minus_1*s*(xp*y*sx*cy + yp*x*sy*cx)/rel_p
-
-  b11 = 
-  b12 = 
-  b13 = 
-
-  o1, o2, o3 = (b01, b02, b03) .- cross((b01, b02, b03), (b11, b12, b13))
-
-  o1 += coeff2*y + coeff3*xp
-  o2 += coeff2*x + coeff3*yp
+  o1 = coeff1*y*sy + 
+  o2 = coeff1*x*sx + 
+  o3 = k1*a*gamma_minus_1*s*(y*xp*cy*sx + x*yp*cx*sy)/rel_p
 
   q1 = expq((o1, o2, o3), alive)
   q2 = quat_mul(q1, q[i,Q0], q[i,QX], q[i,QY], q[i,QZ])
