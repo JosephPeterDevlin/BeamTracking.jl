@@ -29,15 +29,15 @@ L:  element length
   end
 
   if !isnothing(coords.q)
-    rotate_spin!(i, coords, a, 0, tilde_m, mm, kn, ks, 0, L / 2)
+    rotate_spin!(i, coords, a, 0, tilde_m, mm, kn, ks, -1, L / 2)
   end
 
   multipole_kick!(i, coords, mm, knL, ksL, 0)
-  exact_solenoid!(i, coords, Ksol, beta_0, gamsqr_0, tilde_m, a, L)
+  exact_solenoid!(i, coords, Ksol, beta_0, gamsqr_0, tilde_m, nothing, L)
   multipole_kick!(i, coords, mm, knL, ksL, 0)
 
   if !isnothing(coords.q)
-    rotate_spin!(i, coords, a, 0, tilde_m, mm, kn, ks, 0, L / 2)
+    rotate_spin!(i, coords, a, 0, tilde_m, mm, kn, ks, -1, L / 2)
   end
 
   if !isnothing(radiation_params)
