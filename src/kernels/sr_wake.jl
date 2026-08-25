@@ -3,7 +3,7 @@
   alive = coords.state[i] == STATE_ALIVE
 
   rel_p = 1 + v[i,PZI]
-  beta = rel_p / sqrt(rel_p*rel_p + tilde_m*tilde_m)
+  beta = rel_p/sqrt(rel_p*rel_p + tilde_m*tilde_m)
   t = -v[i,ZI]/(beta*C_LIGHT)
   k = floor((t-tmin)/dt)
   tk = tmin + k*dt
@@ -29,7 +29,7 @@ end
   alive = coords.state[i] == STATE_ALIVE
 
   rel_p = 1 + v[i,PZI]
-  beta = rel_p / sqrt(rel_p*rel_p + tilde_m*tilde_m)
+  beta = rel_p/sqrt(rel_p*rel_p + tilde_m*tilde_m)
   t = -v[i,ZI]/(beta*C_LIGHT)
   k = floor((t-tmin)/dt)
   tk = tmin + k*dt

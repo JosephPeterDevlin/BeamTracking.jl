@@ -170,7 +170,7 @@ end
 
 @inline function bin_long(tm, kc, p_over_q_ref, bunch, dt)
   !isnothing(bunch.coords.longitudinal_density) || error("Longitudinal density not allocated")
-  bunch.coords.longitudinal_density = zeros(bunch.coords.longitudinal_density)
+  bunch.coords.longitudinal_density .= zero(eltype(bunch.coords.longitudinal_density))
   tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, bunch.p_over_q_ref)
   center = -mean(bunch.coords.v, dims=1)[ZI]/(beta_0*C_LIGHT)
   off = dt*length(bunch.coords.longitudinal_density)/2

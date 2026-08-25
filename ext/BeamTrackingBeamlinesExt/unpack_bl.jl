@@ -133,8 +133,8 @@ function universal!(
   end
 
   if isactive(srwakeparams)
-    kc = @inline(bin_long(tm, kc, p_over_q_ref, bunch, srwakeparams.sr_longitudinal_wake_dt))
-    kc = @inline(srwake_long(tm, kc, p_over_q_ref, bunch, srwakeparams.sr_longitudinal_wake, srwakeparams.sr_longitudinal_wake_dt))
+    kc = @inline(bin_long(tm, kc, p_over_q_ref, bunch, srwakeparams.sr_wake_dt))
+    kc = @inline(srwake_long(tm, kc, p_over_q_ref, bunch, srwakeparams.sr_wake_z, srwakeparams.sr_wake_dt))
   end
 
   if isactive(mapparams)    
