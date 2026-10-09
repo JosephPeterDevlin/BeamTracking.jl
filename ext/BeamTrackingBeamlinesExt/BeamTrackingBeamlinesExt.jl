@@ -16,6 +16,7 @@ function track!(
   scalar_params::Bool=false,
   ramp_particle_energy_without_rf::Bool=false,
   ramp_update_each_particle::Bool=false,
+  rf_on::Bool=true,
   _p_over_q_ref=nothing,
   context=(haskey(getfield(ele, :pdict), BeamlineParams) ? ele.beamline.context : Beamlines.NULL_CONTEXT),
   kwargs...
@@ -26,7 +27,7 @@ function track!(
     p_over_q_ref = _p_over_q_ref
   end
   coords = bunch.coords
-  @noinline _track!(coords, bunch, ele, context, p_over_q_ref, ele.tracking_method, scalar_params, ramp_particle_energy_without_rf, ramp_update_each_particle; kwargs...)
+  @noinline _track!(coords, bunch, ele, context, p_over_q_ref, ele.tracking_method, scalar_params, ramp_particle_energy_without_rf, ramp_update_each_particle, rf_on; kwargs...)
   return bunch
 end
 
@@ -36,6 +37,7 @@ function track!(
   scalar_params::Bool=false,
   ramp_particle_energy_without_rf::Bool=false,
   ramp_update_each_particle::Bool=false,
+  rf_on::Bool=true,
   kwargs...
 )
   if length(bl.line) == 0
@@ -45,7 +47,7 @@ function track!(
   context = bl.context
   
   for ele in bl.line
-    track!(bunch, ele; context, scalar_params, ramp_particle_energy_without_rf, ramp_update_each_particle, kwargs...)
+    track!(bunch, ele; context, scalar_params, ramp_particle_energy_without_rf, ramp_update_each_particle, rf_on, kwargs...)
   end
 
   return bunch

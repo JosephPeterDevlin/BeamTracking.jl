@@ -176,7 +176,22 @@ end
   off = dt*length(bunch.coords.longitudinal_density)/2
   tmin = center - off
   tmax = center + off
-  return push(kc, make_kernel_call(BeamTracking.bin_long!, (tilde_m, tmin, tmax, dt)))
+  return push(kc, make_kernel_call(BeamTracking.bin_z!, (tilde_m, tmin, tmax, dt)))
+end
+
+
+@inline function bin_trans(tm, kc, p_over_q_ref, bunch, dt)
+  (!isnothing(bunch.coords.dipole_density_x) && !isnothing(bunch.coords.dipole_density_y)) || error("Dipole density not allocated")
+  bunch.coords.dipole_density_x .= zero(eltype(bunch.coords.dipole_density_x))
+  bunch.coords.dipole_density_y .= zero(eltype(bunch.coords.dipole_density_y))
+  tilde_m, _, beta_0 = BeamTracking.drift_params(bunch.species, bunch.p_over_q_ref)
+  center = -mean(bunch.coords.v, dims=1)[ZI]/(beta_0*C_LIGHT)
+  off = dt*length(bunch.coords.dipole_density_x)/2
+  tmin = center - off
+  tmax = center + off
+  kc = push(kc, make_kernel_call(BeamTracking.bin_x!, (tilde_m, tmin, tmax, dt)))
+  kc = push(kc, make_kernel_call(BeamTracking.bin_y!, (tilde_m, tmin, tmax, dt)))
+  return kc
 end
 
 
@@ -189,6 +204,8 @@ end
   voltage_fft = dens_fft .* wake_fft
   voltage = (-chargeof(bunch.species) * E_CHARGE) .* irfft(voltage_fft, length(wake))
   voltage = voltage ./ (p_over_q_ref * C_LIGHT)
+  @show maximum(bunch.coords.longitudinal_density)
+  @show maximum(voltage)
   center = -mean(bunch.coords.v, dims=1)[ZI]/(beta_0*C_LIGHT)
   tmin = center - dt*length(bunch.coords.longitudinal_density)/2
   return push(kc, make_kernel_call(BeamTracking.srwake_long!, (tilde_m, tmin, dt, voltage)))

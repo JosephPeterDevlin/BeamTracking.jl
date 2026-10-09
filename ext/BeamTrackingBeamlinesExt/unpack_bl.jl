@@ -8,7 +8,8 @@ function _track!(
   tm,
   scalar_params,
   ramp_particle_energy_without_rf,
-  ramp_update_each_particle;
+  ramp_update_each_particle,
+  rf_on;
   kwargs...
 )
   # Unpack the line element (type unstable)
@@ -134,6 +135,7 @@ function universal!(
 
   if isactive(srwakeparams)
     kc = @inline(bin_long(tm, kc, p_over_q_ref, bunch, srwakeparams.sr_wake_dt))
+    kc = @inline(bin_trans(tm, kc, p_over_q_ref, bunch, srwakeparams.sr_wake_dt))
     kc = @inline(srwake_long(tm, kc, p_over_q_ref, bunch, srwakeparams.sr_wake_z, srwakeparams.sr_wake_dt))
   end
 
