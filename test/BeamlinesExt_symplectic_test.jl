@@ -705,6 +705,18 @@
     @test b0.coords.v ≈ v_expected
     @test b0.coords.q ≈ q_expected 
 
+    # Rotated quadrupole hard-edge fringe:
+    ele = LineElement(Kn1=0.36, Ks1=-0.1, L=1.0, tracking_method=MatrixKick(order=6, fringe_at=Fringe.BothEnds))
+    v = [0.01 0.02 0.03 0.04 0.05 0.06]
+    q = [1.0 0.0 0.0 0.0]
+    b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
+    bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
+    track!(b0, bl)
+    v_expected = [0.024159872174130355 0.008414891386101665 0.07446122961241507 0.05651065619612818 0.049039736997656694 0.06]
+    q_expected = [0.9999523029943064 -0.007992942014165118 -0.005601199177377362 0.000362190714987054]
+    @test b0.coords.v ≈ v_expected
+    @test b0.coords.q ≈ q_expected 
+
     # Straight electric dipole
     ele = LineElement(En0=-1e6, L=1.0, tracking_method=Symplectic(order=2, fringe_at=Fringe.NoEnd))
     v = [0.01 0.02 0.03 0.04 0.05 0.06] .+ collect(transpose(@vars(D1)))
