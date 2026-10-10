@@ -717,6 +717,30 @@
     @test b0.coords.v ≈ v_expected
     @test b0.coords.q ≈ q_expected 
 
+    # Sextupole hard-edge fringe:
+    ele = LineElement(Kn2=0.5, L=1.0, tracking_method=DriftKick(order=6, n_steps=5, fringe_at=Fringe.BothEnds))
+    v = [0.01 0.02 0.03 0.04 0.05 0.06]
+    q = [1.0 0.0 0.0 0.0]
+    b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
+    bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
+    track!(b0, bl)
+    v_expected = [0.029075666880242136 0.020525099133765507 0.06794414674149704 0.04050540355923974 0.049241843719512624 0.06]
+    q_expected = [0.9999999375534044 -0.00024519551404647864 0.0002543141811614925 -9.830777449218975e-6]
+    @test b0.coords.v ≈ v_expected
+    @test b0.coords.q ≈ q_expected 
+
+    # Rotated sextupole hard-edge fringe:
+    ele = LineElement(Kn2=0.5, Ks2=-0.2, L=1.0, tracking_method=DriftKick(order=6, n_steps=5, fringe_at=Fringe.BothEnds))
+    v = [0.01 0.02 0.03 0.04 0.05 0.06]
+    q = [1.0 0.0 0.0 0.0]
+    b0 = Bunch(v, q, p_over_q_ref=p_over_q_ref, species=Species("electron"))
+    bl = Beamline([ele], p_over_q_ref=p_over_q_ref, species_ref=Species("electron"))
+    track!(b0, bl)
+    v_expected = [0.02900599517398948 0.02032339692460833 0.06802053073622032 0.04071555997933849 0.049240267276727936 0.06]
+    q_expected = [0.9999999275329406 -0.00034694999341466025 0.00015671064047936356 1.2604038281466984e-6]
+    @test b0.coords.v ≈ v_expected
+    @test b0.coords.q ≈ q_expected 
+
     # Straight electric dipole
     ele = LineElement(En0=-1e6, L=1.0, tracking_method=Symplectic(order=2, fringe_at=Fringe.NoEnd))
     v = [0.01 0.02 0.03 0.04 0.05 0.06] .+ collect(transpose(@vars(D1)))

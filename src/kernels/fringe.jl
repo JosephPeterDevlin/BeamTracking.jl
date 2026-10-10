@@ -36,7 +36,7 @@ end
 
 
 # Straight magnetic
-@makekernel fastgtpsa=true function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, w0, w0_inv, Kn1, Ks1, sign)
+@makekernel fastgtpsa=true function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, w0, w0_inv, Kn1, Ks1, Kn2, Ks2, sign)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
   rel_p = 1 + v[i,PZI]
@@ -54,8 +54,16 @@ end
     end
   end
 
+  # Sextupole
+  if !isnothing(Kn2) && !isnothing(Ks2) && !isnothing(coords.q)
+    x2 = v[i,XI]*v[i,XI]
+    y2 = v[i,YI]*v[i,YI]
+    b_vec = (0, 0, sign*v[i,YI]*(x2 - y2/3)*Kn2 + sign*v[i,XI]*(x2/3 - y2)*Ks2)
+    rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), b_vec, 1/2)
+  end
+
   # Quadrupole
-  if !isnothing(Kn1) && !isnothing(Ks1)
+  if !isnothing(Kn1) && !isnothing(Ks1) && !isnothing(coords.q)
     b_vec = (0, 0, sign*v[i,XI]*v[i,YI]*Kn1 + sign/2*(v[i,XI]*v[i,XI] - v[i,YI]*v[i,YI])*Ks1)
     rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), b_vec, 1/2)
   end
@@ -78,6 +86,39 @@ end
     rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), b_vec, 1/2)
   end
 
+  # Sextupole
+  if !isnothing(Kn2) && !isnothing(Ks2)
+    Kn2_over_rel_p = sign*Kn2/rel_p
+    Ks2_over_rel_p = sign*Ks2/rel_p
+
+    x2 = v[i,XI]*v[i,XI]
+    x4 = x2*x2
+    y2 = v[i,YI]*v[i,YI]
+    y4 = y2*y2
+
+    fx_over_rel_p = -Kn2_over_rel_p/48*(3*x4 + 6*x2*y2 - 5*y4) + Ks2_over_rel_p/12*v[i,XI]*v[i,YI]*(x2 + 3*y2)
+    fy_over_rel_p =  Kn2_over_rel_p/12*v[i,XI]*v[i,YI]*(3*x2 + y2) + Ks2_over_rel_p/48*(5*x4 - 6*x2*y2 - 3*y4)
+    alphax = -(Kn2_over_rel_p*v[i,XI] - Ks2_over_rel_p*v[i,YI])/4*(x2 + y2)
+    alphay =   Kn2_over_rel_p*v[i,YI]/12*(5*y2 - 3*x2) + Ks2_over_rel_p*v[i,XI]/12*(x2 + 9*y2)
+    betax =    Kn2_over_rel_p*v[i,YI]/12*(y2 + 9*x2) + Ks2_over_rel_p*v[i,XI]/12*(5*x2 - 3*y2)
+    betay =   -alphax
+    delta = (1 - alphax)*(1 - betay) - alphay*betax
+    px_over_delta = v[i,PXI]/delta
+    py_over_delta = v[i,PYI]/delta
+
+    new_x  = v[i,XI] - fx_over_rel_p
+    new_y  = v[i,YI] - fy_over_rel_p
+    new_px = (1 - betay)*px_over_delta + betax*py_over_delta
+    new_py = alphay*px_over_delta + (1 - alphax)*py_over_delta
+    new_z  = v[i,ZI] + new_px/rel_p*fx_over_rel_p + new_py/rel_p*fy_over_rel_p
+
+    v[i,XI]  = vifelse(alive, new_x,  v[i,XI])
+    v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
+    v[i,YI]  = vifelse(alive, new_y,  v[i,YI])
+    v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
+    v[i,ZI]  = vifelse(alive, new_z,  v[i,ZI])
+  end
+
   # Quadrupole
   if !isnothing(Kn1) && !isnothing(Ks1)
     Kn1_over_rel_p = sign*Kn1/rel_p
@@ -88,7 +129,7 @@ end
     y2 = v[i,YI]*v[i,YI]
     y3 = v[i,YI]*y2
 
-    fx_over_rel_p = -Kn1_over_rel_p/12*(x3 + 3*v[i,XI]*y2) + Ks1_over_rel_p/6*y3
+    fx_over_rel_p = -Kn1_over_rel_p/12*v[i,XI]*(x2 + 3*y2) + Ks1_over_rel_p/6*y3
     fy_over_rel_p =  Kn1_over_rel_p/12*v[i,YI]*(3*x2 + y2) + Ks1_over_rel_p/6*x3
     alphax = -Kn1_over_rel_p/4*(x2 + y2)
     alphay =  v[i,YI]/2*(Ks1_over_rel_p*v[i,YI] - Kn1_over_rel_p*v[i,XI])
@@ -165,8 +206,16 @@ end
     end
   end
 
+  # Sextupole
+  if !isnothing(Kn2) && !isnothing(Ks2) && !isnothing(coords.q)
+    x2 = v[i,XI]*v[i,XI]
+    y2 = v[i,YI]*v[i,YI]
+    b_vec = (0, 0, sign*v[i,YI]*(x2 - y2/3)*Kn2 + sign*v[i,XI]*(x2/3 - y2)*Ks2)
+    rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), b_vec, 1/2)
+  end
+
   # Quadrupole
-  if !isnothing(Kn1) && !isnothing(Ks1)
+  if !isnothing(Kn1) && !isnothing(Ks1) && !isnothing(coords.q)
     b_vec = (0, 0, sign*v[i,XI]*v[i,YI]*Kn1 + sign/2*(v[i,XI]*v[i,XI] - v[i,YI]*v[i,YI])*Ks1)
     rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), b_vec, 1/2)
   end
