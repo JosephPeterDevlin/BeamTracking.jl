@@ -36,7 +36,7 @@ end
 
 
 # Straight magnetic
-@makekernel fastgtpsa=true function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, w0, w0_inv, Kn1, Ks1, Kn2, Ks2, sign)
+@makekernel fastgtpsa=true function fringe!(i, coords::Coords, a, tilde_m, Ksol, Kn0, Ks0, Kn1, Ks1, Kn2, Ks2, sign)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
   rel_p = 1 + v[i,PZI]
@@ -69,15 +69,9 @@ end
   end
 
   # Dipole
-  if !isnothing(Kn0) && !isnothing(coords.q)
-    if !isnothing(w0)
-      rotation!(i, coords, w0, 0)
-    end
-    b_vec = (0, 0, sign*v[i,YI]*Kn0)
+  if !isnothing(Kn0) && !isnothing(Ks0) && !isnothing(coords.q)
+    b_vec = (0, 0, sign*v[i,YI]*Kn0 + sign*v[i,XI]*Ks0)
     rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), b_vec, 1/2)
-    if !isnothing(w0_inv)
-      rotation!(i, coords, w0_inv, 0)
-    end
   end
 
   # Solenoid
@@ -102,7 +96,14 @@ end
     alphay =   Kn2_over_rel_p*v[i,YI]/12*(5*y2 - 3*x2) + Ks2_over_rel_p*v[i,XI]/12*(x2 + 9*y2)
     betax =    Kn2_over_rel_p*v[i,YI]/12*(y2 + 9*x2) + Ks2_over_rel_p*v[i,XI]/12*(5*x2 - 3*y2)
     betay =   -alphax
+
     delta = (1 - alphax)*(1 - betay) - alphay*betax
+    good_delta = (delta > 0)
+    alive_at_start = (coords.state[i] == STATE_ALIVE)
+    coords.state[i] = vifelse(!good_delta & alive_at_start, STATE_LOST, coords.state[i])
+    alive = (coords.state[i] == STATE_ALIVE)
+    delta_1 = one(delta)
+    delta = vifelse(good_delta, delta, delta_1)
     px_over_delta = v[i,PXI]/delta
     py_over_delta = v[i,PYI]/delta
 
@@ -135,7 +136,14 @@ end
     alphay =  v[i,YI]/2*(Ks1_over_rel_p*v[i,YI] - Kn1_over_rel_p*v[i,XI])
     betax =   v[i,XI]/2*(Ks1_over_rel_p*v[i,XI] + Kn1_over_rel_p*v[i,YI])
     betay =  -alphax
+
     delta = (1 - alphax)*(1 - betay) - alphay*betax
+    good_delta = (delta > 0)
+    alive_at_start = (coords.state[i] == STATE_ALIVE)
+    coords.state[i] = vifelse(!good_delta & alive_at_start, STATE_LOST, coords.state[i])
+    alive = (coords.state[i] == STATE_ALIVE)
+    delta_1 = one(delta)
+    delta = vifelse(good_delta, delta, delta_1)
     px_over_delta = v[i,PXI]/delta
     py_over_delta = v[i,PYI]/delta
 
@@ -153,11 +161,7 @@ end
   end
 
   # Dipole
-  if !isnothing(Kn0)
-    if !isnothing(w0)
-      rotation!(i, coords, w0, 0)
-    end
-
+  if !isnothing(Kn0) && !isnothing(Ks0)
     px = v[i,PXI] - ax
     py = v[i,PYI] - ay
     ps2 = rel_p*rel_p - px*px - py*py
@@ -190,9 +194,6 @@ end
     v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
     v[i,ZI]  = vifelse(alive, new_z,  v[i,ZI])
 
-    if !isnothing(w0_inv)
-      rotation!(i, coords, w0_inv, 0)
-    end
   end
 
   # Solenoid
@@ -221,15 +222,9 @@ end
   end
 
   # Dipole
-  if !isnothing(Kn0) && !isnothing(coords.q)
-    if !isnothing(w0)
-      rotation!(i, coords, w0, 0)
-    end
-    b_vec = (0, 0, sign*v[i,YI]*Kn0)
+  if !isnothing(Kn0) && !isnothing(Ks0) && !isnothing(coords.q)
+    b_vec = (0, 0, sign*v[i,YI]*Kn0 + sign*v[i,XI]*Ks0)
     rotate_spin_field!(i, coords, a, 0, tilde_m, ax, ay, (0, 0, 0), b_vec, 1/2)
-    if !isnothing(w0_inv)
-      rotation!(i, coords, w0_inv, 0)
-    end
   end
 
   # Solenoid
