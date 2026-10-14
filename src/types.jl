@@ -27,15 +27,12 @@ struct Coords{S,V,Q,W,T,U,P,R}
   q::Q                     # Matrix of particle quaternions if spin else nothing 
   weight::W                # Array of particle weights if weighted else nothing
   callbacks::T             # Tuple of functions to evaluate inside kernels
-  longitudinal_density::U  # Array for binned longitudinal density
-  dipole_density_x::P      # Array for binned horizontal dipole density
-  dipole_density_y::R      # Array for binned vertical dipole density
-  function Coords(state, v, q, weight, callbacks, longitudinal_density, dipole_density_x, dipole_density_y)
+  function Coords(state, v, q, weight, callbacks)
     if !isnothing(q) && eltype(v) != eltype(q)
       error("Cannot initialize Coords with orbital coordinates of type $(eltype(v))
              and quaternion coordinates of type $(typeof(q)).")
     end
-    return new{typeof(state),typeof(v),typeof(q),typeof(weight),typeof(callbacks),typeof(longitudinal_density),typeof(dipole_density_x),typeof(dipole_density_y)}(state, v, q, weight, callbacks, longitudinal_density, dipole_density_x, dipole_density_y)
+    return new{typeof(state),typeof(v),typeof(q),typeof(weight),typeof(callbacks)}(state, v, q, weight, callbacks)
   end
 end
 
@@ -47,7 +44,7 @@ mutable struct Bunch{B,T,C<:Coords}
 end
 
 function Base.getproperty(b0::Bunch, key::Symbol)
-  if key in (:state, :v, :q, :weight, :callbacks, :longitudinal_density, :dipole_density_x, :dipole_density_y)
+  if key in (:state, :v, :q, :weight, :callbacks)
     return getproperty(b0.coords, key)
   else
     return getfield(b0, key)
@@ -88,8 +85,6 @@ Construct a `Bunch` of particles for tracking.
    or perhaps `s` position), then the callback should be a *closure* that reads/writes 
    to an outside mutable state each execution. 
   Defaults to `()`.
-- `longitudinal_density`: Array to store binned longitudinal density, or `nothing` 
-  if not needed. Defaults to `nothing`. 
 - `p_over_q_ref`: Reference momentum-over-charge defining the normalization 
   of the phase space coordinates.
 - `t_ref=0.`: Reference time.
@@ -112,30 +107,27 @@ function Bunch(;
   q= spin ? (qs = similar(v, (size(v, 1), 4)); qs .= 0; qs[:,1] .= 1; qs) : nothing,
   weight=nothing,
   callbacks=(),
-  longitudinal_density=nothing,
-  diopole_density_x=nothing,
-  diopole_density_y=nothing,
-  p_over_q_ref=NaN, 
-  t_ref=0., 
+  p_over_q_ref=(float_type(eltype(v)))(NaN), 
+  t_ref=(float_type(eltype(v)))(0), 
   species=Species(),
 )
   size(v, 2) == 6 || error("The number of columns of the particle coordinates vector `v` must be equal to 6")
-  return Bunch(species, p_over_q_ref, t_ref, Coords(state, v, q, weight, callbacks, longitudinal_density, diopole_density_x, diopole_density_y))
+  return Bunch(species, p_over_q_ref, t_ref, Coords(state, v, q, weight, callbacks))
 end
 
-function Bunch(v::AbstractMatrix, q=nothing, weight=nothing; p_over_q_ref=NaN, t_ref=0., species=Species(), callbacks=(), longitudinal_density=nothing, dipole_density_x=nothing, dipole_density_y=nothing)
+function Bunch(v::AbstractMatrix, q=nothing, weight=nothing; p_over_q_ref=(float_type(eltype(v)))(NaN), t_ref=(float_type(eltype(v)))(0), species=Species(), callbacks=())
   size(v, 2) == 6 || error("The number of columns must be equal to 6")
   N_particle = size(v, 1)
   state = similar(v, UInt8, N_particle)
   state .= STATE_ALIVE
-  return Bunch(species, p_over_q_ref, t_ref, Coords(state, v, q, weight, callbacks, longitudinal_density, dipole_density_x, dipole_density_y))
+  return Bunch(species, p_over_q_ref, t_ref, Coords(state, v, q, weight, callbacks))
 end
 
-function Bunch(v::AbstractVector, q=nothing, weight=nothing; p_over_q_ref=NaN, t_ref=0., species=Species(), callbacks=(), longitudinal_density=nothing, dipole_density_x=nothing, dipole_density_y=nothing)
+function Bunch(v::AbstractVector, q=nothing, weight=nothing; p_over_q_ref=(float_type(eltype(v)))(NaN), t_ref=(float_type(eltype(v)))(0), species=Species(), callbacks=())
   length(v) == 6 || error("Bunch accepts a N x 6 matrix of N particle coordinates,
                             or alternatively a single particle as a vector. Received 
                             a vector of length $(length(v))")
-  return Bunch(reshape(v, (1,6)), q, weight; p_over_q_ref=p_over_q_ref, t_ref=t_ref, species=species, callbacks=callbacks, longitudinal_density=longitudinal_density, dipole_density_x=dipole_density_x, dipole_density_y=dipole_density_y)
+  return Bunch(reshape(v, (1,6)), q, weight; p_over_q_ref=p_over_q_ref, t_ref=t_ref, species=species, callbacks=callbacks)
 end
 
 struct ParticleView{B,T,S,V,Q,W,D,X,Y}
@@ -147,9 +139,6 @@ struct ParticleView{B,T,S,V,Q,W,D,X,Y}
   v::V
   q::Q
   weight::W
-  longitudinal_density::D
-  dipole_density_x::X
-  dipole_density_y::Y
   ParticleView(args...) = new{typeof.(args)...}(args...)
 end
 
@@ -157,8 +146,5 @@ function ParticleView(bunch::Bunch, i=1)
   v = bunch.coords.v
   q = bunch.coords.q
   weight = bunch.coords.weight
-  longitudinal_density = bunch.coords.longitudinal_density
-  dipole_density_x = bunch.coords.dipole_density_x
-  dipole_density_y = bunch.coords.dipole_density_y
-  return ParticleView(i, bunch.species, bunch.p_over_q_ref, bunch.t_ref, bunch.coords.state[i], view(v, :, i), isnothing(q) ? q : view(q, :, i), isnothing(weight) ? weight : weight[i], isnothing(longitudinal_density) ? longitudinal_density : view(longitudinal_density, i), isnothing(dipole_density_x) ? dipole_density_x : view(dipole_density_x, i), isnothing(dipole_density_y) ? dipole_density_y : view(dipole_density_y, i))
+  return ParticleView(i, bunch.species, bunch.p_over_q_ref, bunch.t_ref, bunch.coords.state[i], view(v, :, i), isnothing(q) ? q : view(q, :, i), isnothing(weight) ? weight : weight[i])
 end

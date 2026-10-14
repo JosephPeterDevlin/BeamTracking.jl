@@ -25,10 +25,10 @@ import GTPSA: sincu, sinhcu
 
 export Species
 export Bunch, State, ParticleView, Time, TimeDependentParam, BatchParam
-export Yoshida, Yoshida, MatrixKick, BendKick, SolenoidKick, DriftKick, Exact
+export Symplectic, MatrixKick, BendKick, SolenoidKick, DriftKick, Exact, RungeKutta
 export Fringe, SaganCavity, track!
 
-
+include("utils/float32.jl")
 include("utils/coord_transforms.jl")
 include("utils/energy.jl")
 include("utils/math_simd.jl")
@@ -42,6 +42,7 @@ include("types.jl")
 include("time.jl")
 include("batch.jl")
 include("callbacks.jl")
+include("kernels/ramp_P0.jl")
 include("kernel.jl")
 include("tracking_methods.jl")
 
@@ -55,17 +56,21 @@ include("kernels/multipole.jl")
 include("kernels/patch.jl")
 include("kernels/quadrupole_kick.jl")
 include("kernels/radiation.jl")
-include("kernels/ramp_P0.jl")
 include("kernels/rfcavity_kick.jl")
 include("kernels/sagan_cavity.jl")
 include("kernels/solenoid_kick.jl")
 include("kernels/spin.jl")
 include("kernels/transforms.jl")
-include("kernels/yoshida.jl")
+include("kernels/integrators.jl")
 include("kernels/ibs_kick.jl")
 include("kernels/implicit.jl")
 include("kernels/thin.jl")
 include("kernels/sr_wake.jl")
+include("kernels/fringe.jl")
+include("kernels/elsep.jl")
+
+include("fields.jl")
+include("kernels/runge_kutta.jl")
 
 include("utils/find_stuff.jl")
 

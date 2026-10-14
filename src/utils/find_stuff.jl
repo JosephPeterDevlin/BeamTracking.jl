@@ -1,4 +1,4 @@
-function find_steps(tm::BeamTracking.AbstractYoshida, L) 
+function find_steps(tm::BeamTracking.AbstractSymplectic, L) 
   if L == 0
     return (1, L)
   end
@@ -13,7 +13,21 @@ function find_steps(tm::BeamTracking.AbstractYoshida, L)
 end
 find_steps(::Any, L) = (1, L)
 
-# Temporary disgusting solution for callbacks - Yoshida
+function find_steps(tm::RungeKutta, L)
+  L > 0 || error("RungeKutta tracking requires a positive element length")
+  n_steps = tm.n_steps > 0 ? tm.n_steps : ceil(Int, L / tm.ds_step)
+  return n_steps, L / n_steps
+end
+
+find_m_tilde(::Type{K}) where {K<:typeof(implicit_integrator!)} = 3
+find_m_tilde(::Type{K}) where {K<:typeof(exact_drift!)} = 3
+find_m_tilde(::Type{K}) where {K<:typeof(sks_multipole!)} = 4
+find_m_tilde(::Type{K}) where {K<:typeof(dkd_multipole!)} = 4
+find_m_tilde(::Type{K}) where {K<:typeof(bkb_multipole!)} = 2
+find_m_tilde(::Type{K}) where {K<:typeof(mkm_quadrupole!)} = 4
+find_m_tilde(::Type{K}) where {K} = 0 # Fallback
+
+# Temporary disgusting solution for callbacks - Symplectic
 @generated function compute_dt_ref(s, ker::K, params) where {K}
   idx = find_m_tilde(ker)
   if idx == 0
@@ -27,11 +41,3 @@ find_steps(::Any, L) = (1, L)
     end
   end
 end
-
-find_m_tilde(::Type{K}) where {K<:typeof(implicit_integrator!)} = 3
-find_m_tilde(::Type{K}) where {K<:typeof(exact_drift!)} = 3
-find_m_tilde(::Type{K}) where {K<:typeof(sks_multipole!)} = 4
-find_m_tilde(::Type{K}) where {K<:typeof(dkd_multipole!)} = 4
-find_m_tilde(::Type{K}) where {K<:typeof(bkb_multipole!)} = 2
-find_m_tilde(::Type{K}) where {K<:typeof(mkm_quadrupole!)} = 4
-find_m_tilde(::Type{K}) where {K} = 0 # Fallback

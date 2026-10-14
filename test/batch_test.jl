@@ -71,7 +71,7 @@ function test_batch(
   else
     use_explicit_SIMD=true
   end
-  track!(b0_batch, bl_batch; use_explicit_SIMD=use_explicit_SIMD) 
+  track!(b0_batch, bl_batch; use_explicit_SIMD) 
   
   @test b0_batch.coords.v[1,:]' ≈ b0_1.coords.v
   @test b0_batch.coords.v[2,:]' ≈ b0_2.coords.v
@@ -210,7 +210,7 @@ end
   b0_4 = Bunch(v[1,:]', nothing; p_over_q_ref=bl_4.p_over_q_ref, species=bl_4.species_ref)
 
 
-  b0_batch = Bunch(v, nothing; p_over_q_ref=bl_batch.p_over_q_ref, species=bl_batch.species_ref)
+  b0_batch = Bunch(copy(v), nothing; p_over_q_ref=bl_batch.p_over_q_ref, species=bl_batch.species_ref)
 
   track!(b0_1, bl_1)
   track!(b0_2, bl_2)
@@ -223,12 +223,22 @@ end
   else
     use_explicit_SIMD=true
   end
-  track!(b0_batch, bl_batch; use_explicit_SIMD=use_explicit_SIMD) 
+  track!(b0_batch, bl_batch; use_explicit_SIMD) 
   
   @test b0_batch.coords.v[1,:]' ≈ b0_1.coords.v
   @test b0_batch.coords.v[2,:]' ≈ b0_2.coords.v
   @test b0_batch.coords.v[3,:]' ≈ b0_3.coords.v
   @test b0_batch.coords.v[4,:]' ≈ b0_4.coords.v
+
+  # Now check batch_start
+  batch_start=3
+  b01_batch = Bunch(circshift(v, (batch_start-1,0)), nothing; p_over_q_ref=bl_batch.p_over_q_ref, species=bl_batch.species_ref)
+  track!(b01_batch, bl_batch; batch_start, use_explicit_SIMD) 
+  @test b01_batch.coords.v[1,:]' ≈ b0_batch.coords.v[3,:]'
+  @test b01_batch.coords.v[2,:]' ≈ b0_batch.coords.v[4,:]'
+  @test b01_batch.coords.v[3,:]' ≈ b0_batch.coords.v[1,:]'
+  @test b01_batch.coords.v[4,:]' ≈ b0_batch.coords.v[2,:]'
+
   #=
   # Aperture:
   # let's make a time-dependent aperture which oscillates but will allow both

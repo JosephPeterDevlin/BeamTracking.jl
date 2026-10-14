@@ -1,6 +1,7 @@
 Base.promote_rule(::Type{DefExpr{T}}, ::Type{TimeDependentParam}) where {T} = DefExpr{TimeDependentParam}
-
+Base.promote_rule(::Type{DefExpr{T}}, ::Type{BatchParam}) where {T} = DefExpr{promote_type(BatchParam, T)}
 Beamlines.DefExpr{T}(a::TimeDependentParam) where {T} = DefExpr{T}(()->convert(T,a))
+Beamlines.DefExpr{BatchParam}(a::BatchParam) = DefExpr{BatchParam}(()->a)
 
 """
     check_bl_bunch!(bunch::Bunch, bl::Beamline, notify::Bool=true)
@@ -61,6 +62,7 @@ end
 #---------------------------------------------------------------------------------------------------
 
 get_n_multipoles(::BMultipoleParams{T,N}) where {T,N} = N
+get_n_multipoles(::EMultipoleParams{T,N}) where {T,N} = N
 
 make_static(a::StaticArray) = SVector(a)
 make_static(a::SizedArray) = SVector(a)
@@ -154,6 +156,41 @@ end
   sp = @. ifelse(!normalized, sp/p_over_q_ref, sp) 
   np = @. ifelse(!integrated, np*L, np)
   sp = @. ifelse(!integrated, sp*L, sp)
+  return np, sp
+end
+
+@inline function get_e_strengths(em, L)
+  emn = getfield(em, :n)
+  ems = getfield(em, :s)
+  emtilt = getfield(em, :etilt)
+  if isconcretetype(eltype(emn))
+    T = promote_type(eltype(emn),
+                    typeof(L)
+    )
+  else
+    if emn isa AbstractArray
+      T = promote_type(reduce(promote_type, typeof.(emn)), 
+                      reduce(promote_type, typeof.(ems)),
+                      reduce(promote_type, typeof.(emtilt)),
+                      typeof(L)
+      )
+    else
+      T = promote_type(typeof(emn), 
+                      typeof(ems),
+                      typeof(emtilt),
+                      typeof(L)
+      )
+    end
+  end
+  n = T.(make_static(emn))
+  s = T.(make_static(ems))
+  tilt = T.(make_static(emtilt))
+  order = getfield(em, :order)
+  integrated = getfield(em, :integrated)
+  np = @. n*cos(order*tilt) + s*sin(order*tilt)
+  sp = @. -n*sin(order*tilt) + s*cos(order*tilt)
+  np = @. ifelse(integrated, np/L, np)
+  sp = @. ifelse(integrated, sp/L, sp)
   return np, sp
 end
 

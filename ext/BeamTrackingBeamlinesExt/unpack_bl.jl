@@ -9,7 +9,12 @@ function _track!(
   scalar_params,
   ramp_particle_energy_without_rf,
   ramp_update_each_particle,
+<<<<<<< HEAD
   rf_on;
+=======
+  rf_on,
+  batch_start;
+>>>>>>> 65e343f9afda8a208fdfaeb487d615b0ca5a408e
   kwargs...
 )
   # Unpack the line element (type unstable)
@@ -17,6 +22,7 @@ function _track!(
   # float call is required because L is allowed to be any type
   # in order to keep binaries smaller for tracking routines, 
   # we don't want to compile separate routines for Int64
+<<<<<<< HEAD
   ap = deval(ele.AlignmentParams, context)
   bp = deval(ele.BendParams, context)
   bm = deval(ele.BMultipoleParams, context)
@@ -27,6 +33,24 @@ function _track!(
   lp = deval(ele.BeamlineParams, context)
   fpp = deval(ele.FourPotentialParams, context)
   srwp = deval(ele.SRWakeParams, context)
+=======
+
+  # Parameter groups in ignore_params are replaced with nothing, exactly as if the element
+  # did not have them (like RFParams with rf_on = false)
+  ip = ele.IgnoreParams
+  ig = isnothing(ip) ? () : ip.ignore_params
+  ap = AlignmentParams in ig ? nothing : deval(ele.AlignmentParams, context)
+  bp = BendParams in ig ? nothing : deval(ele.BendParams, context)
+  bm = BMultipoleParams in ig ? nothing : deval(ele.BMultipoleParams, context)
+  pp = PatchParams in ig ? nothing : deval(ele.PatchParams, context)
+  dp = ApertureParams in ig ? nothing : deval(ele.ApertureParams, context)
+  mp = MapParams in ig ? nothing : deval(ele.MapParams, context)
+  rp = (!rf_on || RFParams in ig) ? nothing : deval(ele.RFParams, context)
+  lp = BeamlineParams in ig ? nothing : deval(ele.BeamlineParams, context)
+  fpp = FourPotentialParams in ig ? nothing : deval(ele.FourPotentialParams, context)
+  em = EMultipoleParams in ig ? nothing : deval(ele.EMultipoleParams, context)
+  emfp = EMFieldParams in ig ? nothing : deval(ele.EMFieldParams, context)
+>>>>>>> 65e343f9afda8a208fdfaeb487d615b0ca5a408e
 
   if scalar_params
     L = scalarize(L)
@@ -39,12 +63,21 @@ function _track!(
     rp = scalarize(rp)
     lp = scalarize(lp)
     fpp = scalarize(fpp)
+<<<<<<< HEAD
     srwp = scalarize(srwp)
+=======
+    em = scalarize(em)
+    emfp = scalarize(emfp)
+>>>>>>> 65e343f9afda8a208fdfaeb487d615b0ca5a408e
     p_over_q_ref = scalarize(p_over_q_ref)
   end
 
   # Function barrier
+<<<<<<< HEAD
   universal!(coords, tm, ele, ramp_particle_energy_without_rf, ramp_update_each_particle, bunch, L, p_over_q_ref, ap, bp, bm, pp, dp, rp, lp, mp, fpp, srwp; kwargs...)
+=======
+  universal!(coords, tm, ele, ramp_particle_energy_without_rf, ramp_update_each_particle, batch_start, bunch, L, p_over_q_ref, ap, bp, bm, pp, dp, rp, lp, mp, fpp, em, emfp; kwargs...)
+>>>>>>> 65e343f9afda8a208fdfaeb487d615b0ca5a408e
 end
 
 # Step 2: Push particles through -----------------------------------------
@@ -54,6 +87,7 @@ function universal!(
   ele,
   ramp_particle_energy_without_rf, 
   ramp_update_each_particle,
+  batch_start,
   bunch,
   L, 
   p_over_q_ref,
@@ -66,26 +100,38 @@ function universal!(
   beamlineparams,
   mapparams,
   fourpotentialparams,
+<<<<<<< HEAD
   srwakeparams;
+=======
+  emultipoleparams,
+  em_field_params;
+>>>>>>> 65e343f9afda8a208fdfaeb487d615b0ca5a408e
   kwargs...
 ) 
   # Compute information about reference coordinate system:
   t_enter = bunch.t_ref
-  if p_over_q_ref isa TimeDependentParam
-    beta_gamma_enter = R_to_beta_gamma(bunch.species, p_over_q_ref(t_enter))
-  else
-    beta_gamma_enter = R_to_beta_gamma(bunch.species, p_over_q_ref)
-  end
+  beta_gamma_enter_t = R_to_beta_gamma(bunch.species, p_over_q_ref)
+  beta_gamma_enter = p_over_q_ref isa TimeDependentParam ? beta_gamma_enter_t(t_enter) : beta_gamma_enter_t
   g = isnothing(bendparams) ? (0,0) : reverse((bendparams.g_ref .* sincos(bendparams.tilt_ref)))
   ds_step = (L == 0 || isactive(patchparams)) ? L : BeamTracking.find_steps(tm, L)[2]
   # Reference time evolution thru element assumes constant energy
   # using the energy at the start of the element:
   t_exit = bunch.t_ref + L / beta_gamma_to_v(beta_gamma_enter)
+  beta_gamma_exit_t = R_to_beta_gamma(bunch.species, p_over_q_ref)
+
   if p_over_q_ref isa TimeDependentParam
-    beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref(t_exit))
+    if ramp_update_each_particle
+      beta_gamma_exit = beta_gamma_exit_t(t_exit)
+      p_over_q_ref_exit = p_over_q_ref(t_exit)
+    else
+      beta_gamma_exit = beta_gamma_enter # Don't ramp at end of element if !ramp_update_each_particle
+      p_over_q_ref_exit = p_over_q_ref(t_enter)
+    end
   else
-    beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref)
+    beta_gamma_exit = beta_gamma_exit_t
+    p_over_q_ref_exit = p_over_q_ref
   end
+<<<<<<< HEAD
   
   # Current KernelChain length is 12 because we have up to
   # 2 aperture, 2 alignment, 1 body kernel, 1 IBS kernel,
@@ -95,17 +141,38 @@ function universal!(
   kc = KernelChain(Val{12}(), RefState(; t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step))
 
   p_over_q_ref_initial = bunch.p_over_q_ref
+=======
+
+  T = eltype(coords.v)
+
+  t_enter = BeamTracking.num_lower(T, t_enter)
+  beta_gamma_enter = BeamTracking.num_lower(T, beta_gamma_enter)
+  t_exit  = BeamTracking.num_lower(T, t_exit)
+  beta_gamma_exit  = BeamTracking.num_lower(T, beta_gamma_exit)
+  L = BeamTracking.num_lower(T, L)
+  g = BeamTracking.num_lower(T, g)
+  ds_step = BeamTracking.num_lower(T, ds_step)
+  p_over_q_ref = BeamTracking.num_lower(T, p_over_q_ref)
+
+  # Current KernelChain length is 10 because we have up to
+  # 2 aperture, 2 alignment, 1 body kernel, 1 IBS kernel,
+  # 2 kernels to update the particles' reference energy,
+  # and 2 for coordinate conversion with implicit
+  kc = KernelChain(Val{10}(), RefState{T}(; t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step), batch_start)
+  
+>>>>>>> 65e343f9afda8a208fdfaeb487d615b0ca5a408e
   ramp_per_particle = p_over_q_ref isa TimeDependentParam && ramp_update_each_particle
+  bunch_beta_gamma = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
 
   if ramp_per_particle
-    kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (bunch.p_over_q_ref, p_over_q_ref-bunch.p_over_q_ref, Val{!ramp_particle_energy_without_rf}())))
+    kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (bunch_beta_gamma, beta_gamma_enter_t-bunch_beta_gamma, Val{!ramp_particle_energy_without_rf}())))
     kc = push_transforms_out(kc, make_kernel_call((i, coords, cur_s, cur_t_ref)->error("transforms_out! not supported yet with ramp_update_each_particle = true")))
     kc = push_transforms_in(kc, make_kernel_call((i, coords, cur_s, cur_t_ref)->error("transforms_in! not supported yet with ramp_update_each_particle = true")))
   else
     # Make sure to evaluate p_over_q_ref if not ramp_update_each_particle
-    p_over_q_ref = p_over_q_ref isa TimeDependentParam ? p_over_q_ref(bunch.t_ref) : p_over_q_ref
-    if !(p_over_q_ref ≈ p_over_q_ref_initial)
-        kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (p_over_q_ref_initial, p_over_q_ref - p_over_q_ref_initial, Val{!ramp_particle_energy_without_rf}())))
+    p_over_q_ref = p_over_q_ref isa TimeDependentParam ? p_over_q_ref(t_enter) : p_over_q_ref
+    if !(BeamTracking.num_lower(typeof(bunch.p_over_q_ref), beta_gamma_enter) ≈ BeamTracking.num_lower(typeof(bunch.p_over_q_ref), bunch_beta_gamma))
+        kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (bunch_beta_gamma, beta_gamma_enter - bunch_beta_gamma, Val{!ramp_particle_energy_without_rf}())))
         bunch.p_over_q_ref = p_over_q_ref
     end
   end
@@ -133,6 +200,7 @@ function universal!(
     kc = @inline(ibs_kick(tm, kc, p_over_q_ref, bunch, bp, L))
   end
 
+<<<<<<< HEAD
   if isactive(srwakeparams)
     kc = @inline(bin_long(tm, kc, p_over_q_ref, bunch, srwakeparams.sr_wake_dt))
     kc = @inline(bin_trans(tm, kc, p_over_q_ref, bunch, srwakeparams.sr_wake_dt))
@@ -140,6 +208,14 @@ function universal!(
   end
 
   if isactive(mapparams)    
+=======
+  if tm isa RungeKutta
+    kc = @inline(runge_kutta_body(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams,
+                                  patchparams, rfparams, mapparams, fourpotentialparams,
+                                  emultipoleparams, em_field_params, L))
+
+  elseif isactive(mapparams)    
+>>>>>>> 65e343f9afda8a208fdfaeb487d615b0ca5a408e
     if isactive(bendparams)
       error("Tracking through a LineElement containing both MapParams and BendParams not currently defined")
     elseif isactive(bmultipoleparams)
@@ -189,6 +265,7 @@ function universal!(
     
   elseif isactive(bendparams)
     if bendparams.edge1_int != 0 || bendparams.edge2_int != 0; error("edge1_int and edge2_int not yet handled for tracking"); end
+    if isactive(emultipoleparams); error("Tracking through a LineElement containing both BendParams and EMultipoleParams not currently defined"); end
     # Bend
     if !isactive(bmultipoleparams) 
       # Bend no field
@@ -235,6 +312,7 @@ function universal!(
     end
 
   elseif isactive(bmultipoleparams)
+    if isactive(emultipoleparams); error("Tracking through a LineElement containing both BMultipoleParams and EMultipoleParams not currently defined"); end
     # BMultipole
     n_multipoles = get_n_multipoles(bmultipoleparams)
     if 0 in bmultipoleparams.order # Solenoid
@@ -275,6 +353,17 @@ function universal!(
       end
     end
 
+  elseif isactive(emultipoleparams)
+    # EMultipole
+    n_multipoles = get_n_multipoles(emultipoleparams)
+    if n_multipoles == 1 && 1 in emultipoleparams.order
+      # Pure dipole
+      em1 = first(emultipoleparams)
+      kc = @inline(pure_edipole(tm, kc, p_over_q_ref, bunch, em1, L))
+    else
+      error("Tracking through a LineElement containing EMultipoleParams not currently defined for order > 1")
+    end
+
   elseif L != 0
     kc = @inline(drift(tm, kc, p_over_q_ref, bunch, L))
   end
@@ -296,19 +385,19 @@ function universal!(
     kc = @inline(aperture(tm, kc, p_over_q_ref, bunch, apertureparams, false))
   end
 
+  # If ramping, now need to uniformly ramp all particles to same reference energy
+  if ramp_per_particle
+    # If TimeDependentParam, at end ramp all 
+    # uniformly to p_over_q_ref(t_ref at end)
+    kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (beta_gamma_enter_t, beta_gamma_exit-beta_gamma_enter_t, Val{!ramp_particle_energy_without_rf}())))
+  end
+  
   # noinline necessary here for small binaries and faster execution
   @noinline launch!(coords, kc; kwargs...)
 
   # Update reference time
   bunch.t_ref = t_exit
-
-  # If ramping, now need to uniformly ramp all particles to same reference energy
-  if ramp_per_particle
-    # If TimeDependentParam, at end ramp all 
-    # uniformly to p_over_q_ref(t_ref at end)
-    bunch.p_over_q_ref = p_over_q_ref(bunch.t_ref)
-    kc = push(kc, make_kernel_call(BeamTracking.reference_momentum_shift!, (bunch.p_over_q_ref, bunch.p_over_q_ref-p_over_q_ref, Val{!ramp_particle_energy_without_rf}())))
-  end
+  bunch.p_over_q_ref = p_over_q_ref_exit
 
   return nothing
 end
@@ -316,15 +405,16 @@ end
 #---------------------------------------------------------------------------------------------------
 # universal! for SaganCavity tracking.
 
-function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_rf, ramp_update_each_particle, bunch, L,
+function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_rf, ramp_update_each_particle, batch_start, bunch, L,
   p_over_q_ref, alignmentparams, bendparams, bmultipoleparams, patchparams, apertureparams,
-  rfparams, beamlineparams, mapparams, fourpotentialparams; kwargs...) 
+  rfparams, beamlineparams, mapparams, fourpotentialparams, emultipoleparams, em_field_params; kwargs...)
 
-  !isactive(mapparams) || error("SaganCavity Tracking through element $ele_name with MapParams is undefined")
-  !isactive(patchparams) || error("SaganCavity Tracking through element $ele_name with PatchParams is undefined")
-  !isactive(patchparams) || error("SaganCavity Tracking through element $ele_name with BendParams is undefined")
-  !isactive(fourpotentialparams) || error("SaganCavity Tracking through element $ele_name with FourPotentialParams is undefined")
-  isactive(rfparams) || error("SaganCavity Tracking through element $ele_name without RFParams is undefined")
+  !isactive(mapparams) || error("SaganCavity Tracking through element $(ele.name) with MapParams is undefined")
+  !isactive(patchparams) || error("SaganCavity Tracking through element $(ele.name) with PatchParams is undefined")
+  !isactive(bendparams) || error("SaganCavity Tracking through element $(ele.name) with BendParams is undefined")
+  !isactive(fourpotentialparams) || error("SaganCavity Tracking through element $(ele.name) with FourPotentialParams is undefined")
+  !isactive(emultipoleparams) || error("SaganCavity Tracking through element $(ele.name) with EMultipoleParams is undefined")
+  isactive(rfparams) || error("SaganCavity Tracking through element $(ele.name) without RFParams is undefined")
 
   beta_gamma_ref = R_to_beta_gamma(bunch.species, bunch.p_over_q_ref)
 
@@ -358,16 +448,16 @@ function universal!(coords, tm::SaganCavity, ele, ramp_particle_energy_without_r
         dt_ref += L_active / (n_cells * E_to_v(species, E_now_ref))
       end
     end
-    t_exit = dt_ref
+    t_exit = t_enter + dt_ref
   else
-    t_exit = 0
+    t_exit = t_enter
   end
   if p_over_q_ref isa TimeDependentParam
     beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref(t_exit))
   else
     beta_gamma_exit = R_to_beta_gamma(bunch.species, p_over_q_ref)
   end
-  kc = KernelChain(Val{10}(), RefState(; t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step))
+  kc = KernelChain(Val{10}(), RefState{eltype(coords.v)}(; t_enter, beta_gamma_enter, t_exit, beta_gamma_exit, L, g, ds_step), batch_start)
 
   # Ramping
   if p_over_q_ref isa TimeDependentParam
@@ -450,6 +540,7 @@ end
 @inline thin_pure_bmultipole(tm, kc, p_over_q_ref, bunch, bmk)                       = error("Undefined for tracking method $tm")
 @inline thin_bmultipole(tm, kc, p_over_q_ref, bunch, bmultipoleparams)               = error("Undefined for tracking method $tm")
 @inline thin_bmultipole_rf(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams)  = error("Undefined for tracking method $tm")
+@inline thin_pure_edipole(tm, kc, p_over_q_ref, bunch, em1)                          = error("Undefined for tracking method $tm")
 
 @inline thick_pure_rf(tm, kc, p_over_q_ref, bunch, rfparams, beamlineparams, L)                         = error("Undefined for tracking method $tm")
 @inline thick_pure_bsolenoid(tm, kc, p_over_q_ref, bunch, bm0, L)                                       = error("Undefined for tracking method $tm")
@@ -461,6 +552,7 @@ end
 @inline thick_pure_bmultipole(tm, kc, p_over_q_ref, bunch, bmk, L)                                      = error("Undefined for tracking method $tm")
 @inline thick_bmultipole(tm, kc, p_over_q_ref, bunch, bmultipoleparams, L)                              = error("Undefined for tracking method $tm")
 @inline thick_bmultipole_rf(tm, kc, p_over_q_ref, bunch, bmultipoleparams, rfparams, beamlineparams, L) = error("Undefined for tracking method $tm")
+@inline thick_pure_edipole(tm, kc, p_over_q_ref, bunch, em1, L)                                         = error("Undefined for tracking method $tm")
 
 # === Elements with curving coordinate system "bend" === #
 # "Bend" means ONLY a coordinate system curvature through the element.
@@ -511,4 +603,5 @@ end
 @inline bend_pure_bquadrupole(tm, kc, p_over_q_ref, bunch, bendparams, bm2, L)                = L == 0 ? thin_bend_pure_bquadrupole(tm, kc, p_over_q_ref, bunch, bendparams, bm2)               : thick_bend_pure_bquadrupole(tm, kc, p_over_q_ref, bunch, bendparams, bm2, L)        
 @inline bend_bquadrupole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L)        = L == 0 ? thin_bend_bquadrupole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams)       : thick_bend_bquadrupole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L)           
 @inline bend_pure_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmk, L)                 = L == 0 ? thin_bend_pure_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmk)                : thick_bend_pure_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmk, L)                   
-@inline bend_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L)         = L == 0 ? thin_bend_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams)        : thick_bend_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L)                      
+@inline bend_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L)         = L == 0 ? thin_bend_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams)        : thick_bend_bmultipole(tm, kc, p_over_q_ref, bunch, bendparams, bmultipoleparams, L)      
+@inline pure_edipole(tm, kc, p_over_q_ref, bunch, em1, L)                                     = L == 0 ? thin_pure_edipole(tm, kc, p_over_q_ref, bunch, em1)                                    : thick_pure_edipole(tm, kc, p_over_q_ref, bunch, em1, L)                          
