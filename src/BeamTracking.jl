@@ -63,6 +63,7 @@ include("kernels/implicit.jl")
 include("kernels/thin.jl")
 include("kernels/fringe.jl")
 include("kernels/elsep.jl")
+include("kernels/beam_beam.jl")
 
 include("fields.jl")
 include("kernels/runge_kutta.jl")
