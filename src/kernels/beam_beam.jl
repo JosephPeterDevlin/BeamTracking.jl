@@ -1,0 +1,124 @@
+function bb_step!(i, coords::Coords, s, ::Val{first}, ::Val{last}, order, sigma_x, sigma_y, sigma_z, L) where {first, last}
+  u = 2*s - 1 # transforming (0, 1) to (-1, 1)
+  L = 2*L - 1
+
+  # spin and radiation
+
+  if first
+    first_bb_drift!(i, coords, order, sigma_z, L)
+  else
+    bb_drift!(i, coords, u, order, sigma_z, L)
+  end
+
+  bb_kick!(i, coords, u, order, sigma_x, sigma_y, sigma_z, L)
+
+  if last
+    final_bb_drift!(i, coords, order, sigma_z, L)
+  else
+    bb_drift!(i, coords, u, order, sigma_z, L)
+  end
+
+  # spin and radiation
+end
+
+
+@makekernel fastgtpsa=true function first_bb_drift!(i, coords::Coords, order, sigma_z, L)
+  v = coords.v
+
+  L_eff = v[i,ZI] - 2*order*sigma_z*erfcinv(L)
+  rel_p = 1 + v[i,PZI]
+  pt2 = v[i,PXI]*v[i,PXI] + v[i,PYI]*v[i,PYI]
+  ps2 = rel_p*rel_p - pt2
+  good_momenta = (ps2 > 0)
+  alive_at_start = (coords.state[i] == STATE_ALIVE)
+  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+  alive = (coords.state[i] == STATE_ALIVE)
+  ps2_1 = one(ps2)
+  ps = sqrt(vifelse(good_momenta, ps2, ps2_1))
+
+  denom = rel_p + ps
+
+  new_x = v[i,XI] + v[i,PXI]/denom*L_eff
+  new_y = v[i,YI] + v[i,PYI]/denom*L_eff
+  new_z = v[i,ZI] - pt2/(denom*denom)*L_eff
+  new_pz = (v[i,PZI] + ps)/2
+  v[i,XI]  = vifelse(alive, new_x, v[i,XI])
+  v[i,YI]  = vifelse(alive, new_y, v[i,YI])
+  v[i,ZI]  = vifelse(alive, new_z, v[i,ZI])
+  v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
+end
+
+
+@makekernel fastgtpsa=true function final_bb_drift!(i, coords::Coords, order, sigma_z, L)
+  v = coords.v
+
+  L_eff = v[i,ZI] + 2*order*sigma_z*erfcinv(L)
+  rel_p_unsafe = 1 + 2*v[i,PZI]
+  good_momenta = (rel_p_unsafe > 0)
+  alive_at_start = (coords.state[i] == STATE_ALIVE)
+  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+  alive = (coords.state[i] == STATE_ALIVE)
+  rel_p_1 = one(rel_p_unsafe)
+  rel_p = vifelse(good_momenta, rel_p_unsafe, rel_p_1)
+
+  pt2 = v[i,PXI]*v[i,PXI] + v[i,PYI]*v[i,PYI]
+  ps_unsafe = v[i,PZI] + 1/2 - pt2/(2*rel_p)
+  good_momenta = (ps_unsafe > 0)
+  alive_at_start = (coords.state[i] == STATE_ALIVE)
+  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+  alive = (coords.state[i] == STATE_ALIVE)
+  ps_1 = one(ps_unsafe)
+  ps = vifelse(good_momenta, ps_unsafe, ps_1)
+
+  denom = 2*ps
+
+  new_x = v[i,XI] - v[i,PXI]/denom*L_eff
+  new_y = v[i,YI] - v[i,PYI]/denom*L_eff
+  new_z = v[i,ZI] + pt2/(rel_p*denom)*L_eff
+  new_pz = v[i,PZI] - 1/2 + pt2/(2*rel_p)
+  v[i,XI]  = vifelse(alive, new_x, v[i,XI])
+  v[i,YI]  = vifelse(alive, new_y, v[i,YI])
+  v[i,ZI]  = vifelse(alive, new_z, v[i,ZI])
+  v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
+end
+
+
+@makekernel fastgtpsa=true function bb_drift!(i, coords::Coords, u, order, sigma_z, L)
+  v = coords.v
+
+  L_eff = order*sigma_z*(erfinv(u + L) - erfinv(u))
+  pt2 = v[i,PXI]*v[i,PXI] + v[i,PYI]*v[i,PYI]
+  rel_p_unsafe = 1 + 2*v[i,PZI]
+  good_momenta = (rel_p_unsafe > 0)
+  alive_at_start = (coords.state[i] == STATE_ALIVE)
+  coords.state[i] = vifelse(!good_momenta & alive_at_start, STATE_LOST, coords.state[i])
+  alive = (coords.state[i] == STATE_ALIVE)
+  rel_p_1 = one(rel_p_unsafe)
+  rel_p = vifelse(good_momenta, rel_p_unsafe, rel_p_1)
+
+  new_x = v[i,XI] + 2*v[i,PXI]/rel_p*L_eff
+  new_y = v[i,YI] + 2*v[i,PYI]/rel_p*L_eff
+  new_z = v[i,ZI] - 2*pt2/(rel_p*rel_p)*L_eff
+  v[i,XI] = vifelse(alive, new_x, v[i,XI])
+  v[i,YI] = vifelse(alive, new_y, v[i,YI])
+  v[i,ZI] = vifelse(alive, new_z, v[i,ZI])
+end
+
+
+@makekernel fastgtpsa=true function bb_kick!(i, coords::Coords, u, order, sigma_x, sigma_y, sigma_z, L)
+  v = coords.v
+  alive = (coords.state[i] == STATE_ALIVE)
+
+  tau_mid = order*sigma_z*erfinv((u + L)/2)
+  density_weight = (erf(sqrt(2)*order*erfinv(u + L)) - erf(sqrt(2)*order*erfinv(u)))/4
+
+  phi_x, phi_y, phi_z = bb_derivatives
+
+  new_px = v[i,PXI] - 2*density_weight*phi_x
+  new_py = v[i,PYI] - 2*density_weight*phi_y
+  new_pz = v[i,PZI] -   density_weight*phi_z
+
+  v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
+  v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
+  v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
+end
