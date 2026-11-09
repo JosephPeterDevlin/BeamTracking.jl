@@ -16,7 +16,8 @@ using GTPSA,
       Statistics,
       LinearAlgebra,
       TPSAInterface,
-      ForwardDiff
+      ForwardDiff,
+      FFTW
 
 using KernelAbstractions
 

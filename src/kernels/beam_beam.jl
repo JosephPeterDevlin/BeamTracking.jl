@@ -1,4 +1,4 @@
-function bb_step!(i, coords::Coords, s, ::Val{first}, ::Val{last}, order, sigma_x, sigma_y, sigma_z, L) where {first, last}
+function bb_step!(i, coords::Coords, s, ::Val{first}, ::Val{last}, order, kick_coeff, sigma_x, sigma_y, sigma_z, L) where {first, last}
   u = 2*s - 1 # transforming (0,1) to (-1,1)
   L = 2*L - 1
 
@@ -10,7 +10,7 @@ function bb_step!(i, coords::Coords, s, ::Val{first}, ::Val{last}, order, sigma_
     bb_drift!(i, coords, u, order, sigma_z, L)
   end
 
-  bb_kick!(i, coords, u, order, sigma_x, sigma_y, sigma_z, L)
+  bb_kick!(i, coords, u, order, kick_coeff, sigma_x, sigma_y, sigma_z, L)
 
   if last
     final_bb_drift!(i, coords, order, sigma_z, L)
@@ -105,11 +105,11 @@ end
 end
 
 
-@makekernel fastgtpsa=true function bb_kick!(i, coords::Coords, u, order, beta_x, beta_y, sigma_x, sigma_y, sigma_z, L)
+@makekernel fastgtpsa=true function bb_kick!(i, coords::Coords, u, order, kick_coeff, beta_x, beta_y, sigma_x, sigma_y, sigma_z, L)
   v = coords.v
   alive = (coords.state[i] == STATE_ALIVE)
 
-  s_mid = order*sigma_z*erfinv((u + L)/2) + v[i,ZI]/2
+  s_mid = v[i,ZI]/2 + order*sigma_z*erfinv(u + L/2)
   s_mid2 = s_mid*s_mid
   density_weight = (erf(sqrt(2)*order*erfinv(u + L)) - erf(sqrt(2)*order*erfinv(u)))/4
 
@@ -118,12 +118,12 @@ end
 
   sigma_x_cur = sigma_x*sqrt(1 + s_mid2/beta_x2)
   sigma_y_cur = sigma_y*sqrt(1 + s_mid2/beta_y2)
-  sigma_x_prime = sigma_x/sigma_x_cur*s_mid/beta_x2
-  sigma_y_prime = sigma_y/sigma_y_cur*s_mid/beta_y2
+  sigma_x_prime_times_sigma_x = sigma_x*sigma_x*s_mid/beta_x2
+  sigma_y_prime_times_sigma_y = sigma_y*sigma_y*s_mid/beta_y2
 
-  phi_x, phi_y, phi_xx, phi_yy = bb_derivatives(v[i,XI], v[i,YI], sigma_x_cur, sigma_y_cur, sigma_z)
-  phi_z = sigma_x_cur*phi_xx*sigma_x_prime + sigma_y_cur*phi_yy*sigma_y_prime
-  
+  phi_x, phi_y, phi_xx, phi_yy = kick_coeff .* bb_derivatives(v[i,XI], v[i,YI], sigma_x_cur, sigma_y_cur)
+  phi_z = sigma_x_prime_times_sigma_x*phi_xx + sigma_y_prime_times_sigma_y*phi_yy
+
   new_px = v[i,PXI] - 2*density_weight*phi_x
   new_py = v[i,PYI] - 2*density_weight*phi_y
   new_pz = v[i,PZI] -   density_weight*phi_z
@@ -131,24 +131,4 @@ end
   v[i,PXI] = vifelse(alive, new_px, v[i,PXI])
   v[i,PYI] = vifelse(alive, new_py, v[i,PYI])
   v[i,PZI] = vifelse(alive, new_pz, v[i,PZI])
-end
-
-
-function bb_derivatives(x, y, sigma_x, sigma_y, sigma_z)
-  if sigma_x ≈ sigma_y
-    # round case
-  else
-    if sigma_x > sigma_y
-      x1 = x 
-      x2 = y
-      sigma_1 = sigma_x
-      sigma_2 = sigma_y
-    else
-      x1 = y
-      x2 = x
-      sigma_1 = sigma_y
-      sigma_2 = sigma_x
-    end
-    # Basetti-Erskine
-  end
 end
