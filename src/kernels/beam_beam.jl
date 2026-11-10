@@ -1,21 +1,21 @@
-@makekernel fastgtpsa=true bb_step!(i, coords::Coords, s, first, last, order, kick_coeff, sigma_x, sigma_y, sigma_z, L)
+@makekernel fastgtpsa=true function bb_step!(i, coords::Coords, s, first, last, order, kick_coeff, beta_x, beta_y, sigma_x, sigma_y, sigma_z, L)
   u = 2*s - 1 # transforming (0,1) to (-1,1)
-  L = 2*L - 1
+  L = 2*L
 
   # spin and radiation
 
   if first
-    first_bb_drift!(i, coords, order, sigma_z, L)
+    first_bb_drift!(i, coords, order, sigma_z, L/2)
   else
-    bb_drift!(i, coords, u, order, sigma_z, L)
+    bb_drift!(i, coords, u, order, sigma_z, L/2)
   end
 
-  bb_kick!(i, coords, u, order, kick_coeff, sigma_x, sigma_y, sigma_z, L)
+  bb_kick!(i, coords, u, order, kick_coeff, beta_x, beta_y, sigma_x, sigma_y, sigma_z, L)
 
   if last
-    last_bb_drift!(i, coords, order, sigma_z, L)
+    last_bb_drift!(i, coords, order, sigma_z, L/2)
   else
-    bb_drift!(i, coords, u, order, sigma_z, L)
+    bb_drift!(i, coords, u + L/2, order, sigma_z, L/2)
   end
 
   # spin and radiation
@@ -111,7 +111,7 @@ end
 
   s_mid = v[i,ZI]/2 + order*sigma_z*erfinv(u + L/2)
   s_mid2 = s_mid*s_mid
-  density_weight = (erf(sqrt(2)*order*erfinv(u + L)) - erf(sqrt(2)*order*erfinv(u)))/4
+  density_weight = (erf(sqrt(2)*order*erfinv(min(u + L, one(u + L)))) - erf(sqrt(2)*order*erfinv(u)))/4 # min prevents rounding overflow
 
   beta_x2 = beta_x*beta_x
   beta_y2 = beta_y*beta_y
