@@ -16,10 +16,13 @@ function integrate_steps!(i, coords::Coords, ker::K, params, photon_params, ds_s
     if !isnothing(photon_params)
       stochastic_radiation!(i, coords, s, photon_params..., ds_step / 2)
     end
+    nw = length(ws)
     for step in 1:n_steps
-      for w in ws
-        ker(i, coords, s, params..., w)
-        s += w
+      for j in 1:nw
+        is_first = (step == 1)       & (j == 1)
+        is_last  = (step == n_steps) & (j == nw)
+        ker(i, coords, s, is_first, is_last, params..., ws[j])
+        s += ws[j]
       end
       if step < n_steps
         if !isnothing(photon_params)

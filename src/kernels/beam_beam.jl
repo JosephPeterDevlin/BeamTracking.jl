@@ -1,4 +1,4 @@
-function bb_step!(i, coords::Coords, s, ::Val{first}, ::Val{last}, order, kick_coeff, sigma_x, sigma_y, sigma_z, L) where {first, last}
+@makekernel fastgtpsa=true bb_step!(i, coords::Coords, s, first, last, order, kick_coeff, sigma_x, sigma_y, sigma_z, L)
   u = 2*s - 1 # transforming (0,1) to (-1,1)
   L = 2*L - 1
 
@@ -13,7 +13,7 @@ function bb_step!(i, coords::Coords, s, ::Val{first}, ::Val{last}, order, kick_c
   bb_kick!(i, coords, u, order, kick_coeff, sigma_x, sigma_y, sigma_z, L)
 
   if last
-    final_bb_drift!(i, coords, order, sigma_z, L)
+    last_bb_drift!(i, coords, order, sigma_z, L)
   else
     bb_drift!(i, coords, u, order, sigma_z, L)
   end
@@ -49,7 +49,7 @@ end
 end
 
 
-@makekernel fastgtpsa=true function final_bb_drift!(i, coords::Coords, order, sigma_z, L)
+@makekernel fastgtpsa=true function last_bb_drift!(i, coords::Coords, order, sigma_z, L)
   v = coords.v
 
   L_eff = v[i,ZI] + 2*order*sigma_z*erfcinv(L)

@@ -61,14 +61,28 @@ expm1(x::TPS) = exp(x) - 1
   end
   return :(vifelse(abs(x) > $threshold, expm1(-x)/x, -1 + x/2))
 end
-# For TPSA, must sum series (TBD)
+# For TPSA, must sum series or ask Laurent for new function (TBA)
 
 
 function bb_derivatives_round(x, y, sigma)
+  error("Not done")
   x2 = x*x
   y2 = y*y
   r2 = x2 + y2
-  coeff = 2*expm1_neg_over(r2/(2*sigma*sigma))
+  sigma2 = sigma*sigma
+  exponent = r2/(2*sigma2)
+  exp_exponent_m1_over = expm1_neg_over(exponent)
+  exp_exponent_m1 = exponent*exp_exponent_m1_over
+  exp_exponent = 1 + exp_exponent_m1
+
+  coeff = exp_exponent_m1_over/sigma2
+  fx = coeff*x
+  fy = coeff*y
+
+  g1 = exp_exponent/(r2*sigma2)
+  g2 = (x2 - y2)/(r2*r2)*exp_exponent_m1
+  fxx = g1*x2 + g2
+  fyy = g1*y2 - g2
   return fx, fy, fxx, fyy
 end
 
